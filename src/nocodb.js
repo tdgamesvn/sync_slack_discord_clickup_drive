@@ -62,6 +62,15 @@ async function deleteProject(rowId) {
     return res.data;
 }
 
+// ─── Account ──────────────────────────────────
+async function getAccountByUsername(username) {
+    const ids = await getTableIds();
+    const res = await api.get(`/tables/${ids.Account}/records`, {
+        params: { where: `(Username,eq,${username})`, limit: 1 }
+    });
+    return res.data.list && res.data.list.length > 0 ? res.data.list[0] : null;
+}
+
 // ─── SyncConfigs ──────────────────────────────
 
 async function getSyncConfigs(where) {
@@ -102,7 +111,7 @@ async function deleteSyncConfig(rowId) {
 
 // ─── SyncMessages ─────────────────────────────
 
-async function logMessage({ syncConfigTitle, source, sourceMessageId, author, content, syncedTo, status, customerId, projectId }) {
+async function logMessage({ syncConfigTitle, source, sourceMessageId, author, content, syncedTo, status, customerId, projectId, actionBy }) {
     const ids = await getTableIds();
     const record = {
         Title: (content || '').substring(0, 50),
@@ -115,7 +124,8 @@ async function logMessage({ syncConfigTitle, source, sourceMessageId, author, co
         Status: status || 'success',
         Created_At: new Date().toISOString(),
         Customer_Id: customerId,
-        Project_Id: projectId
+        Project_Id: projectId,
+        Action_By: actionBy || 'System'
     };
     const res = await api.post(`/tables/${ids.SyncMessages}/records`, record);
     return res.data;
@@ -241,5 +251,6 @@ module.exports = {
     deleteCustomer,
     getProjects,
     createProject,
-    deleteProject
+    deleteProject,
+    getAccountByUsername
 };

@@ -1,7 +1,45 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const nocodb = require('./nocodb');
+const { authMiddleware, JWT_SECRET } = require('./middleware/auth');
 
 const router = express.Router();
+
+// Apply auth middleware to all routes except /login
+router.use(authMiddleware);
+
+// ─── Authentication ────────────────────────────
+router.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password are required' });
+        }
+
+        const account = await nocodb.getAccountByUsername(username);
+
+        if (!account || account.Password !== password) {
+            return res.status(401).json({ error: 'Invalid origin or password' });
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: account.Id, username: account.Username, name: account['Display Name'] },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            success: true,
+            token,
+            user: { username: account.Username, name: account['Display Name'] }
+        });
+    } catch (err) {
+        console.error('Login Error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 /**
  * Auto-convert Slack thread_ts from link format to API format.
@@ -265,6 +303,7 @@ router.get('/auth/google/url', (req, res) => {
     }
 });
 
+// Callback is excluded from Auth Middleware
 router.get('/auth/google/callback', async (req, res) => {
     try {
         const { code } = req.query;

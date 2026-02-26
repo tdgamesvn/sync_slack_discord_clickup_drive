@@ -9,7 +9,8 @@ Real-time, bidirectional chat synchronization between **ClickUp**, **Slack**, an
 - **File Attachments**: Images and files are downloaded and re-uploaded across platforms
 - **Custom Name Mappings**: Override display names (e.g., "NA" → "Art Director")
 - **Drive Sync**: One-way folder sync from studio → client Google Drive folders
-- **Dashboard UI**: Web-based admin panel to manage configs, view logs, and set name mappings
+- **Dashboard UI & Security**: Web-based admin panel protected by JWT authentication and NocoDB `Account` table
+- **Action Logs**: Track system sync logs and identify the user responsible (`Action By` feature)
 - **Loop Prevention**: Smart detection prevents infinite message loops
 
 ## 🏗️ Architecture
@@ -89,11 +90,21 @@ DISCORD_BOT_TOKEN=xxxxx
 GOOGLE_CLIENT_ID=your_client_id
 GOOGLE_CLIENT_SECRET=your_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+
+# JWT Config (Optional, defaults to fallback in development)
+JWT_SECRET=your_super_secret_jwt_key
 ```
 
 ### 3. NocoDB Setup
 
 Create these tables in your NocoDB base:
+
+**Account** (For Dashboard Login)
+| Column | Type |
+|--------|------|
+| username | SingleLineText |
+| password | SingleLineText |
+| name | SingleLineText |
 
 **Customers**
 | Column | Type |
@@ -134,6 +145,8 @@ Create these tables in your NocoDB base:
 | Status | SingleLineText |
 | Last_Synced | DateTime |
 
+| Custom_Name | SingleLineText |
+
 **SyncMessages** (logs)
 | Column | Type |
 |--------|------|
@@ -143,6 +156,7 @@ Create these tables in your NocoDB base:
 | Author | SingleLineText |
 | Content | SingleLineText |
 | Synced_To | SingleLineText |
+| Action_By | SingleLineText |
 | Status | SingleLineText |
 | Customer_Id | Link (Customers) |
 | Project_Id | Link (Projects) |
@@ -217,10 +231,12 @@ curl -X POST "https://api.clickup.com/api/v2/team/{TEAM_ID}/webhook" \
 
 ## 🔒 Security
 
-- All API keys stored in `.env` (gitignored)
-- Slack signature verification on incoming events
-- Bot message detection to prevent loops
-- Google OAuth tokens securely stored in NocoDB after explicit user consent
+- **Dashboard Login**: Protected by JWT authentication using the `Account` table in NocoDB.
+- **API Protection**: All management endpoints require a valid `Bearer` token. Webhook endpoints are public but do not expose data.
+- **Secure Credentials**: All API keys stored in `.env` (gitignored).
+- **Slack Verification**: Slack signature verification on incoming events.
+- **Bot Detection**: Bot message detection to prevent loops.
+- **OAuth Safety**: Google OAuth tokens securely stored in NocoDB after explicit user consent.
 
 ## 📄 License
 

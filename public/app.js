@@ -1,6 +1,72 @@
 // ─── API Base ─────────────────────────────────
 const API = window.location.origin;
 
+// ─── Auth ─────────────────────────────────────
+let authToken = localStorage.getItem('chatsync_token');
+
+function checkAuth() {
+  if (authToken) {
+    document.getElementById('login-overlay').style.display = 'none';
+    loadDashboard();
+    checkServerStatus();
+  } else {
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
+}
+
+document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+
+  errorEl.style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+
+    authToken = data.token;
+    localStorage.setItem('chatsync_token', authToken);
+    checkAuth();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.style.display = 'block';
+  }
+});
+
+function logout() {
+  authToken = null;
+  localStorage.removeItem('chatsync_token');
+  location.reload();
+}
+
+/**
+ * Wrapper for fetch to auto-attach auth headers and handle 401s
+ */
+async function apiFetch(url, options = {}) {
+  const headers = { ...options.headers };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  const response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401) {
+    logout();
+    throw new Error('Session expired. Please log in again.');
+  }
+
+  return response;
+}
+
+
 // ─── Navigation ───────────────────────────────
 document.querySelectorAll('.nav-link').forEach((link) => {
   link.addEventListener('click', (e) => {
@@ -30,7 +96,7 @@ function switchPage(page) {
 // ─── Dashboard ────────────────────────────────
 async function loadDashboard() {
   try {
-    const res = await fetch(`${API}/api/stats`);
+    const res = await apiFetch(`${API}/api/stats`);
     const data = await res.json();
 
     document.getElementById('stat-chat-total').textContent = data.syncConfigs?.total ?? 0;
@@ -69,7 +135,7 @@ function updateChatProjectFilter() {
 async function loadSyncConfigs() {
   try {
     await fetchDropdownData();
-    const res = await fetch(`${API}/api/sync-configs`);
+    const res = await apiFetch(`${API}/api/sync-configs`);
     let { data } = await res.json();
     const tbody = document.getElementById('sync-configs-body');
 
@@ -118,7 +184,7 @@ async function loadSyncConfigs() {
 async function deleteSyncConfig(id) {
   if (!confirm('Are you sure you want to delete this sync config?')) return;
   try {
-    await fetch(`${API}/api/sync-configs/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/sync-configs/${id}`, { method: 'DELETE' });
     loadSyncConfigs();
   } catch (err) {
     alert('Delete failed: ' + err.message);
@@ -127,7 +193,7 @@ async function deleteSyncConfig(id) {
 
 async function editSyncConfig(id) {
   try {
-    const res = await fetch(`${API}/api/sync-configs`);
+    const res = await apiFetch(`${API}/api/sync-configs`);
     const { data } = await res.json();
     const config = data.find((c) => c.Id === id);
     if (!config) return;
@@ -162,7 +228,7 @@ function updateDriveProjectFilter() {
 async function loadDriveConfigs() {
   try {
     await fetchDropdownData();
-    const res = await fetch(`${API}/api/drive-configs`);
+    const res = await apiFetch(`${API}/api/drive-configs`);
     let { data } = await res.json();
     const tbody = document.getElementById('drive-configs-body');
 
@@ -211,7 +277,7 @@ async function loadDriveConfigs() {
 async function deleteDriveConfig(id) {
   if (!confirm('Are you sure you want to delete this drive config?')) return;
   try {
-    await fetch(`${API}/api/drive-configs/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/drive-configs/${id}`, { method: 'DELETE' });
     loadDriveConfigs();
   } catch (err) {
     alert('Delete failed: ' + err.message);
@@ -220,7 +286,7 @@ async function deleteDriveConfig(id) {
 
 async function editDriveConfig(id) {
   try {
-    const res = await fetch(`${API}/api/drive-configs`);
+    const res = await apiFetch(`${API}/api/drive-configs`);
     const { data } = await res.json();
     const config = data.find((c) => c.Id === id);
     if (!config) return;
@@ -237,8 +303,8 @@ let allProjects = [];
 async function fetchDropdownData() {
   try {
     const [cRes, pRes] = await Promise.all([
-      fetch(`${API}/api/customers`),
-      fetch(`${API}/api/projects`)
+      apiFetch(`${API}/api/customers`),
+      apiFetch(`${API}/api/projects`)
     ]);
     const cData = await cRes.json();
     const pData = await pRes.json();
@@ -278,7 +344,7 @@ async function loadLogs() {
     if (customerId) url += `&customerId=${customerId}`;
     if (projectId) url += `&projectId=${projectId}`;
 
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     const { data } = await res.json();
     renderMessagesTable('logs-body', data || []);
   } catch (err) {
@@ -289,7 +355,8 @@ async function loadLogs() {
 function renderMessagesTable(tbodyId, messages) {
   const tbody = document.getElementById(tbodyId);
   if (!messages.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No sync messages yet.</td></tr>';
+    const colspan = tbodyId === 'logs-body' ? 8 : 6;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" class="empty-state">No sync messages yet.</td></tr>`;
     return;
   }
 
@@ -301,6 +368,7 @@ function renderMessagesTable(tbodyId, messages) {
       <td>${esc(m.Author || '—')}</td>
       <td title="${esc(m.Content || '')}">${esc((m.Content || '').substring(0, 60))}</td>
       <td>${esc(m.Synced_To || '—')}</td>
+      ${tbodyId === 'logs-body' ? `<td>${statusBadge((m.Action_By === 'System' ? 'System' : (m.Action_By || 'System')).toLowerCase(), m.Action_By || 'System')}</td>` : ''}
       <td>${statusBadge(m.Status)}</td>
     </tr>
   `).join('');
@@ -309,7 +377,7 @@ function renderMessagesTable(tbodyId, messages) {
 // ─── Settings ─────────────────────────────────
 async function loadSettings() {
   try {
-    const res = await fetch(`${API}/health`);
+    const res = await apiFetch(`${API}/health`);
     const data = await res.json();
     document.getElementById('setting-status').textContent = data.status || '—';
     document.getElementById('setting-status').className = `badge badge-${data.status === 'ok' ? 'success' : 'error'}`;
@@ -328,7 +396,7 @@ async function loadSettings() {
 // ─── Name Mappings ────────────────────────────
 async function loadNameMappings() {
   try {
-    const res = await fetch(`${API}/api/name-mappings`);
+    const res = await apiFetch(`${API}/api/name-mappings`);
     const { data } = await res.json();
     const tbody = document.getElementById('name-mappings-body');
 
@@ -356,7 +424,7 @@ async function loadNameMappings() {
 async function deleteNameMapping(id) {
   if (!confirm('Delete this name mapping?')) return;
   try {
-    await fetch(`${API}/api/name-mappings/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/name-mappings/${id}`, { method: 'DELETE' });
     loadNameMappings();
   } catch (err) {
     alert('Delete failed: ' + err.message);
@@ -366,7 +434,7 @@ async function deleteNameMapping(id) {
 // ─── Customers ────────────────────────────────
 async function loadCustomers() {
   try {
-    const res = await fetch(`${API}/api/customers`);
+    const res = await apiFetch(`${API}/api/customers`);
     const { data } = await res.json();
     const tbody = document.getElementById('customers-body');
 
@@ -391,7 +459,7 @@ async function loadCustomers() {
 async function deleteCustomer(id) {
   if (!confirm('Are you sure you want to delete this customer?')) return;
   try {
-    await fetch(`${API}/api/customers/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/customers/${id}`, { method: 'DELETE' });
     loadCustomers();
   } catch (err) {
     alert('Delete failed: ' + err.message);
@@ -401,7 +469,7 @@ async function deleteCustomer(id) {
 // ─── Projects ─────────────────────────────────
 async function loadProjects() {
   try {
-    const res = await fetch(`${API}/api/projects`);
+    const res = await apiFetch(`${API}/api/projects`);
     const { data } = await res.json();
     const tbody = document.getElementById('projects-body');
 
@@ -427,7 +495,7 @@ async function loadProjects() {
 async function deleteProject(id) {
   if (!confirm('Are you sure you want to delete this project?')) return;
   try {
-    await fetch(`${API}/api/projects/${id}`, { method: 'DELETE' });
+    await apiFetch(`${API}/api/projects/${id}`, { method: 'DELETE' });
     loadProjects();
   } catch (err) {
     alert('Delete failed: ' + err.message);
@@ -643,7 +711,7 @@ async function handleFormSubmit(e) {
       data.Sync_Discord_To_Slack = formData.get('Sync_Discord_To_Slack') === 'on';
     }
 
-    await fetch(url, {
+    await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -663,7 +731,7 @@ async function handleFormSubmit(e) {
 // ─── Health Check ─────────────────────────────
 async function checkServerStatus() {
   try {
-    const res = await fetch(`${API}/health`);
+    const res = await apiFetch(`${API}/health`);
     const data = await res.json();
     const badge = document.getElementById('server-status');
     const dot = badge.querySelector('.status-dot');
@@ -692,7 +760,7 @@ function esc(str) {
   return div.innerHTML;
 }
 
-function statusBadge(status) {
+function statusBadge(status, label = null) {
   const map = {
     active: 'success',
     success: 'success',
@@ -700,9 +768,11 @@ function statusBadge(status) {
     pending: 'warning',
     error: 'error',
     failed: 'error',
+    system: 'info',
+    admin: 'success'
   };
   const type = map[status] || 'info';
-  return `<span class="badge badge-${type}">${esc(status || 'unknown')}</span>`;
+  return `<span class="badge badge-${type}">${esc(label || status || 'unknown')}</span>`;
 }
 
 function formatUptime(seconds) {
@@ -716,6 +786,7 @@ function formatUptime(seconds) {
 }
 
 // ─── Init ─────────────────────────────────────
-loadDashboard();
-checkServerStatus();
-setInterval(checkServerStatus, 30000); // Check every 30s
+checkAuth();
+setInterval(() => {
+  if (authToken) checkServerStatus();
+}, 30000); // Check every 30s
