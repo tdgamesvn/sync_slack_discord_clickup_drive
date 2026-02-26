@@ -85,23 +85,54 @@ SLACK_SIGNING_SECRET=xxxxx
 # Discord
 DISCORD_BOT_TOKEN=xxxxx
 
-# Google Drive
-GOOGLE_SERVICE_ACCOUNT_KEY_PATH=./GOOGLE_SERVICE_ACCOUNT_KEY.json
+# Google Drive OAuth 2.0
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
 ```
 
 ### 3. NocoDB Setup
 
 Create these tables in your NocoDB base:
 
+**Customers**
+| Column | Type |
+|--------|------|
+| Title | SingleLineText |
+
+**Projects**
+| Column | Type |
+|--------|------|
+| Title | SingleLineText |
+| Customer_Id | Link (Customers) |
+
 **SyncConfigs**
 | Column | Type |
 |--------|------|
 | Title | SingleLineText |
+| Project_Id | Link (Projects) |
 | ClickUp_Task_ID | SingleLineText |
 | Slack_Channel_ID | SingleLineText |
 | Slack_Thread_TS | SingleLineText |
 | Discord_Thread_ID | SingleLineText |
+| Sync_ClickUp_To_Slack | Checkbox |
+| Sync_ClickUp_To_Discord | Checkbox |
+| Sync_Slack_To_ClickUp | Checkbox |
+| Sync_Slack_To_Discord | Checkbox |
+| Sync_Discord_To_ClickUp | Checkbox |
+| Sync_Discord_To_Slack | Checkbox |
 | Status | SingleLineText |
+
+**DriveConfigs**
+| Column | Type |
+|--------|------|
+| Title | SingleLineText |
+| Project_Id | Link (Projects) |
+| Studio_Folder_ID | SingleLineText |
+| Client_Folder_ID | SingleLineText |
+| Sync_Direction | SingleLineText |
+| Status | SingleLineText |
+| Last_Synced | DateTime |
 
 **SyncMessages** (logs)
 | Column | Type |
@@ -113,6 +144,8 @@ Create these tables in your NocoDB base:
 | Content | SingleLineText |
 | Synced_To | SingleLineText |
 | Status | SingleLineText |
+| Customer_Id | Link (Customers) |
+| Project_Id | Link (Projects) |
 | Created_At | DateTime |
 
 **NameMappings**
@@ -173,6 +206,7 @@ curl -X POST "https://api.clickup.com/api/v2/team/{TEAM_ID}/webhook" \
 │   │   ├── clickup.js        # ClickUp webhook handler
 │   │   └── slack.js          # Slack Events handler
 │   ├── drive/
+│   │   ├── auth.js           # OAuth 2.0 Google Auth handler
 │   │   └── sync.js           # Google Drive sync worker
 │   └── utils/
 │       └── attachments.js    # File download utilities
@@ -186,7 +220,7 @@ curl -X POST "https://api.clickup.com/api/v2/team/{TEAM_ID}/webhook" \
 - All API keys stored in `.env` (gitignored)
 - Slack signature verification on incoming events
 - Bot message detection to prevent loops
-- Google service account key excluded from repo
+- Google OAuth tokens securely stored in NocoDB after explicit user consent
 
 ## 📄 License
 

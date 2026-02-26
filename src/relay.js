@@ -121,21 +121,47 @@ async function handleIncomingMessage({ source, action, sourceId, sourceMessageId
             content: text || `[${action}]`,
             syncedTo: syncedTo.join(', '),
             status: syncedTo.length > 0 ? 'success' : 'failed',
+            projectId: syncConfig.Project_Id
         });
     }
 }
 
 function getTargets(source, syncConfig) {
     const targets = [];
-    if (source !== 'clickup' && syncConfig.ClickUp_Task_ID) {
-        targets.push({ platform: 'clickup', taskId: syncConfig.ClickUp_Task_ID });
+
+    // Check if property exists, if undefined/null then default to true for backward compatibility
+    const allow = (prop) => (syncConfig[prop] !== false && syncConfig[prop] !== 0);
+
+    // Source: ClickUp
+    if (source === 'clickup') {
+        if (allow('Sync_ClickUp_To_Slack') && syncConfig.Slack_Channel_ID && syncConfig.Slack_Thread_TS) {
+            targets.push({ platform: 'slack', channelId: syncConfig.Slack_Channel_ID, threadTs: syncConfig.Slack_Thread_TS });
+        }
+        if (allow('Sync_ClickUp_To_Discord') && syncConfig.Discord_Thread_ID) {
+            targets.push({ platform: 'discord', threadId: syncConfig.Discord_Thread_ID });
+        }
     }
-    if (source !== 'slack' && syncConfig.Slack_Channel_ID && syncConfig.Slack_Thread_TS) {
-        targets.push({ platform: 'slack', channelId: syncConfig.Slack_Channel_ID, threadTs: syncConfig.Slack_Thread_TS });
+
+    // Source: Slack
+    if (source === 'slack') {
+        if (allow('Sync_Slack_To_ClickUp') && syncConfig.ClickUp_Task_ID) {
+            targets.push({ platform: 'clickup', taskId: syncConfig.ClickUp_Task_ID });
+        }
+        if (allow('Sync_Slack_To_Discord') && syncConfig.Discord_Thread_ID) {
+            targets.push({ platform: 'discord', threadId: syncConfig.Discord_Thread_ID });
+        }
     }
-    if (source !== 'discord' && syncConfig.Discord_Thread_ID) {
-        targets.push({ platform: 'discord', threadId: syncConfig.Discord_Thread_ID });
+
+    // Source: Discord
+    if (source === 'discord') {
+        if (allow('Sync_Discord_To_ClickUp') && syncConfig.ClickUp_Task_ID) {
+            targets.push({ platform: 'clickup', taskId: syncConfig.ClickUp_Task_ID });
+        }
+        if (allow('Sync_Discord_To_Slack') && syncConfig.Slack_Channel_ID && syncConfig.Slack_Thread_TS) {
+            targets.push({ platform: 'slack', channelId: syncConfig.Slack_Channel_ID, threadTs: syncConfig.Slack_Thread_TS });
+        }
     }
+
     return targets;
 }
 

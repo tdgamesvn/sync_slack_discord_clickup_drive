@@ -298,6 +298,7 @@ body {
 .platform-clickup { background: rgba(121, 62, 255, 0.15); color: #b794f4; }
 .platform-slack { background: rgba(74, 21, 75, 0.3); color: #e28fd0; }
 .platform-discord { background: rgba(88, 101, 242, 0.15); color: #8b9cf7; }
+.platform-drive { background: rgba(25, 167, 206, 0.15); color: #4dc2e0; }
 
 /* ─── Buttons ──────────────────────────────── */
 .btn {

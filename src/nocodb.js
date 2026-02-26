@@ -22,6 +22,46 @@ async function getTableIds() {
     return tableIds;
 }
 
+// ─── Customers ────────────────────────────────
+
+async function getCustomers() {
+    const ids = await getTableIds();
+    const res = await api.get(`/tables/${ids.Customers}/records`, { params: { limit: 100 } });
+    return res.data.list || [];
+}
+
+async function createCustomer(data) {
+    const ids = await getTableIds();
+    const res = await api.post(`/tables/${ids.Customers}/records`, data);
+    return res.data;
+}
+
+async function deleteCustomer(rowId) {
+    const ids = await getTableIds();
+    const res = await api.delete(`/tables/${ids.Customers}/records`, { data: [{ Id: rowId }] });
+    return res.data;
+}
+
+// ─── Projects ─────────────────────────────────
+
+async function getProjects() {
+    const ids = await getTableIds();
+    const res = await api.get(`/tables/${ids.Projects}/records`, { params: { limit: 100 } });
+    return res.data.list || [];
+}
+
+async function createProject(data) {
+    const ids = await getTableIds();
+    const res = await api.post(`/tables/${ids.Projects}/records`, data);
+    return res.data;
+}
+
+async function deleteProject(rowId) {
+    const ids = await getTableIds();
+    const res = await api.delete(`/tables/${ids.Projects}/records`, { data: [{ Id: rowId }] });
+    return res.data;
+}
+
 // ─── SyncConfigs ──────────────────────────────
 
 async function getSyncConfigs(where) {
@@ -62,7 +102,7 @@ async function deleteSyncConfig(rowId) {
 
 // ─── SyncMessages ─────────────────────────────
 
-async function logMessage({ syncConfigTitle, source, sourceMessageId, author, content, syncedTo, status }) {
+async function logMessage({ syncConfigTitle, source, sourceMessageId, author, content, syncedTo, status, customerId, projectId }) {
     const ids = await getTableIds();
     const record = {
         Title: (content || '').substring(0, 50),
@@ -74,16 +114,18 @@ async function logMessage({ syncConfigTitle, source, sourceMessageId, author, co
         Synced_To: syncedTo,
         Status: status || 'success',
         Created_At: new Date().toISOString(),
+        Customer_Id: customerId,
+        Project_Id: projectId
     };
     const res = await api.post(`/tables/${ids.SyncMessages}/records`, record);
     return res.data;
 }
 
-async function getRecentMessages(limit = 50) {
+async function getRecentMessages(limit = 50, where = null) {
     const ids = await getTableIds();
-    const res = await api.get(`/tables/${ids.SyncMessages}/records`, {
-        params: { limit, sort: '-Created_At' },
-    });
+    const params = { limit, sort: '-Created_At' };
+    if (where) params.where = where;
+    const res = await api.get(`/tables/${ids.SyncMessages}/records`, { params });
     return res.data.list || [];
 }
 
@@ -194,4 +236,10 @@ module.exports = {
     resolveDisplayName,
     createNameMapping,
     deleteNameMapping,
+    getCustomers,
+    createCustomer,
+    deleteCustomer,
+    getProjects,
+    createProject,
+    deleteProject
 };

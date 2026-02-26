@@ -19,6 +19,58 @@ function normalizeThreadTs(value) {
     return value;
 }
 
+// ─── Customers ─────────────────────────────
+router.get('/customers', async (req, res) => {
+    try {
+        const configs = await nocodb.getCustomers();
+        res.json({ data: configs });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.post('/customers', async (req, res) => {
+    try {
+        const result = await nocodb.createCustomer(req.body);
+        res.json({ data: result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.delete('/customers/:id', async (req, res) => {
+    try {
+        await nocodb.deleteCustomer(parseInt(req.params.id));
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── Projects ──────────────────────────────
+router.get('/projects', async (req, res) => {
+    try {
+        const configs = await nocodb.getProjects();
+        res.json({ data: configs });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.post('/projects', async (req, res) => {
+    try {
+        const result = await nocodb.createProject(req.body);
+        res.json({ data: result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+router.delete('/projects/:id', async (req, res) => {
+    try {
+        await nocodb.deleteProject(parseInt(req.params.id));
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ─── Sync Configs ─────────────────────────────
 
 router.get('/sync-configs', async (req, res) => {
@@ -64,7 +116,18 @@ router.delete('/sync-configs/:id', async (req, res) => {
 router.get('/sync-messages', async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
-        const messages = await nocodb.getRecentMessages(limit);
+
+        const filters = [];
+        if (req.query.customerId) filters.push(`(Customer_Id,eq,${req.query.customerId})`);
+        if (req.query.projectId) filters.push(`(Project_Id,eq,${req.query.projectId})`);
+        if (req.query.syncConfigTitle) filters.push(`(SyncConfig_Title,eq,${req.query.syncConfigTitle})`);
+
+        let where = null;
+        if (filters.length > 0) {
+            where = filters.join('~and');
+        }
+
+        const messages = await nocodb.getRecentMessages(limit, where);
         res.json({ data: messages });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -190,5 +253,45 @@ router.delete('/name-mappings/:id', async (req, res) => {
     }
 });
 
-module.exports = router;
+// ─── Drive OAuth ──────────────────────────────
+const driveAuth = require('./drive/auth');
 
+router.get('/auth/google/url', (req, res) => {
+    try {
+        const url = driveAuth.getAuthUrl();
+        res.json({ url });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/auth/google/callback', async (req, res) => {
+    try {
+        const { code } = req.query;
+        if (!code) {
+            return res.status(400).send('Missing authorization code');
+        }
+        await driveAuth.handleCallback(code);
+
+        // Try to re-init drive service now that we have tokens
+        const driveSync = require('./drive/sync');
+        await driveSync.initDriveService();
+
+        res.send('<html><body><h2>Authentication successful!</h2><p>You can close this window and return to the application.</p></body></html>');
+    } catch (err) {
+        console.error('OAuth callback error:', err);
+        res.status(500).send(`Authentication failed: ${err.message}`);
+    }
+});
+
+router.get('/auth/google/status', async (req, res) => {
+    try {
+        // Just checking if tokens exist and can be loaded
+        const hasTokens = await driveAuth.loadTokens();
+        res.json({ connected: hasTokens });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+module.exports = router;

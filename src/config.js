@@ -18,8 +18,10 @@ module.exports = {
     // Discord
     DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
 
-    // Google Drive
-    GOOGLE_SERVICE_ACCOUNT_KEY_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH || './GOOGLE_SERVICE_ACCOUNT_KEY.json',
+    // Google Drive OAuth 2.0
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/google/callback`,
 
     // Bot identifiers (populated at runtime)
     SLACK_BOT_USER_ID: null,

@@ -27,6 +27,12 @@
       <li><a href="#" class="nav-link" data-page="chat-sync">
           <span class="nav-icon">💬</span> Chat Sync
         </a></li>
+      <li><a href="#" class="nav-link" data-page="customers">
+          <span class="nav-icon">🏢</span> Customers
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="projects">
+          <span class="nav-icon">📦</span> Projects
+        </a></li>
       <li><a href="#" class="nav-link" data-page="drive-sync">
           <span class="nav-icon">📁</span> Drive Sync
         </a></li>
@@ -114,16 +120,33 @@
 
     <!-- Chat Sync Page -->
     <section class="page" id="page-chat-sync">
-      <div class="page-header">
-        <h1>Chat Sync Configs</h1>
-        <p class="subtitle">Map ClickUp Tasks ↔ Slack Threads ↔ Discord Threads</p>
-        <button class="btn btn-primary" onclick="openModal('chat')">+ Add Sync Config</button>
+      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+        <div style="flex-basis: 100%; display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <h1>Chat Sync Configs</h1>
+            <p class="subtitle">Map ClickUp Tasks ↔ Slack Threads ↔ Discord Threads</p>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('chat')">+ Add Sync Config</button>
+        </div>
+        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
+          <select id="chat-filter-customer" class="form-group" style="padding: 6px; width: auto;"
+            onchange="updateChatProjectFilter()">
+            <option value="">-- All Customers --</option>
+          </select>
+          <select id="chat-filter-project" class="form-group" style="padding: 6px; width: auto;"
+            onchange="loadSyncConfigs()">
+            <option value="">-- All Projects --</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadSyncConfigs()">🔄 Refresh</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
           <table class="data-table" id="sync-configs-table">
             <thead>
               <tr>
+                <th>Customer</th>
+                <th>Project</th>
                 <th>Title</th>
                 <th>ClickUp Task ID</th>
                 <th>Slack Channel</th>
@@ -135,7 +158,60 @@
             </thead>
             <tbody id="sync-configs-body">
               <tr>
-                <td colspan="7" class="empty-state">Loading...</td>
+                <td colspan="9" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Customers Page -->
+    <section class="page" id="page-customers">
+      <div class="page-header">
+        <h1>Customers</h1>
+        <p class="subtitle">Manage customers</p>
+        <button class="btn btn-primary" onclick="openModal('customer')">+ Add Customer</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="data-table" id="customers-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="customers-body">
+              <tr>
+                <td colspan="2" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Projects Page -->
+    <section class="page" id="page-projects">
+      <div class="page-header">
+        <h1>Projects</h1>
+        <p class="subtitle">Manage projects under customers</p>
+        <button class="btn btn-primary" onclick="openModal('project')">+ Add Project</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="data-table" id="projects-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Customer ID</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="projects-body">
+              <tr>
+                <td colspan="3" class="empty-state">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -145,16 +221,33 @@
 
     <!-- Drive Sync Page -->
     <section class="page" id="page-drive-sync">
-      <div class="page-header">
-        <h1>Drive Sync Configs</h1>
-        <p class="subtitle">Sync Google Drive folders from studio → client</p>
-        <button class="btn btn-primary" onclick="openModal('drive')">+ Add Drive Config</button>
+      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+        <div style="flex-basis: 100%; display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <h1>Drive Sync Configs</h1>
+            <p class="subtitle">Sync Google Drive folders from studio → client</p>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('drive')">+ Add Drive Config</button>
+        </div>
+        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
+          <select id="drive-filter-customer" class="form-group" style="padding: 6px; width: auto;"
+            onchange="updateDriveProjectFilter()">
+            <option value="">-- All Customers --</option>
+          </select>
+          <select id="drive-filter-project" class="form-group" style="padding: 6px; width: auto;"
+            onchange="loadDriveConfigs()">
+            <option value="">-- All Projects --</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadDriveConfigs()">🔄 Refresh</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
           <table class="data-table" id="drive-configs-table">
             <thead>
               <tr>
+                <th>Customer</th>
+                <th>Project</th>
                 <th>Title</th>
                 <th>Studio Folder ID</th>
                 <th>Client Folder ID</th>
@@ -166,7 +259,7 @@
             </thead>
             <tbody id="drive-configs-body">
               <tr>
-                <td colspan="7" class="empty-state">Loading...</td>
+                <td colspan="9" class="empty-state">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -176,10 +269,21 @@
 
     <!-- Logs Page -->
     <section class="page" id="page-logs">
-      <div class="page-header">
-        <h1>Sync Logs</h1>
-        <p class="subtitle">All synced messages</p>
-        <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
+      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
+        <div style="flex-basis: 100%;">
+          <h1>Sync Logs</h1>
+          <p class="subtitle">All synced messages Filterable by Customer/Project</p>
+        </div>
+        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
+          <select id="log-filter-customer" class="form-group" style="padding: 6px; width: auto;"
+            onchange="updateLogProjectFilter()">
+            <option value="">-- All Customers --</option>
+          </select>
+          <select id="log-filter-project" class="form-group" style="padding: 6px; width: auto;" onchange="loadLogs()">
+            <option value="">-- All Projects --</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">

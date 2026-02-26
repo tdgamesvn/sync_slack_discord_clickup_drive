@@ -1,21 +1,23 @@
 const { google } = require('googleapis');
-const path = require('path');
-const config = require('../config');
 const nocodb = require('../nocodb');
+const auth = require('./auth');
 
 let driveService = null;
 
 /**
- * Initialize Google Drive API client with service account.
+ * Initialize Google Drive API client using OAuth2 client.
  */
-function initDriveService() {
-    const keyPath = path.resolve(config.GOOGLE_SERVICE_ACCOUNT_KEY_PATH);
-    const auth = new google.auth.GoogleAuth({
-        keyFile: keyPath,
-        scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    driveService = google.drive({ version: 'v3', auth });
-    console.log('[Drive] Service initialized');
+async function initDriveService() {
+    const success = await auth.loadTokens();
+
+    if (!success) {
+        console.warn('[Drive Sync] Unable to load Google Drive OAuth tokens. Sync paused.');
+        return false;
+    }
+
+    driveService = google.drive({ version: 'v3', auth: auth.oauth2Client });
+    console.log('[Drive Sync] OAuth2 Service initialized');
+    return true;
 }
 
 /**
@@ -124,7 +126,10 @@ async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
  */
 async function runDriveSync() {
     try {
-        if (!driveService) initDriveService();
+        if (!driveService) {
+            const initialized = await initDriveService();
+            if (!initialized) return;
+        }
 
         const configs = await nocodb.getDriveConfigs("(Status,eq,active)");
         if (!configs.length) {
@@ -141,9 +146,33 @@ async function runDriveSync() {
 
                 // Update last synced time
                 await nocodb.updateDriveConfig(cfg.Id, { Last_Synced: new Date().toISOString() });
+
+                if (synced > 0) {
+                    await nocodb.logMessage({
+                        syncConfigTitle: cfg.Title,
+                        source: 'drive',
+                        sourceMessageId: `sync_${Date.now()}`,
+                        author: 'System',
+                        content: `✅ Copied ${synced} files to Client Folder.`,
+                        syncedTo: 'Client Folder',
+                        status: 'success',
+                        projectId: cfg.Project_Id
+                    });
+                }
             } catch (err) {
                 console.error(`[Drive] ❌ ${cfg.Title} failed:`, err.message);
                 await nocodb.updateDriveConfig(cfg.Id, { Status: 'error' });
+
+                await nocodb.logMessage({
+                    syncConfigTitle: cfg.Title,
+                    source: 'drive',
+                    sourceMessageId: `sync_err_${Date.now()}`,
+                    author: 'System',
+                    content: `❌ Sync failed: ${err.message}`,
+                    syncedTo: 'Client Folder',
+                    status: 'error',
+                    projectId: cfg.Project_Id
+                });
             }
         }
     } catch (err) {
