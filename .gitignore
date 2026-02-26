@@ -1,0 +1,4 @@
+node_modules/
+.env
+GOOGLE_SERVICE_ACCOUNT_KEY.json
+*.log

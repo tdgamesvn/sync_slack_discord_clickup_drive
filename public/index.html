@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Sync — ClickUp ↔ Slack ↔ Discord</title>
+  <meta name="description" content="Cross-platform chat synchronization dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">ChatSync</span>
+      </div>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#" class="nav-link active" data-page="dashboard">
+          <span class="nav-icon">📊</span> Dashboard
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="chat-sync">
+          <span class="nav-icon">💬</span> Chat Sync
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="drive-sync">
+          <span class="nav-icon">📁</span> Drive Sync
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="logs">
+          <span class="nav-icon">📋</span> Sync Logs
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="name-mappings">
+          <span class="nav-icon">👤</span> Name Mappings
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="settings">
+          <span class="nav-icon">⚙️</span> Settings
+        </a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="status-badge" id="server-status">
+        <span class="status-dot"></span>
+        <span>Connecting...</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Dashboard Page -->
+    <section class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <p class="subtitle">Overview of your sync configurations</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">💬</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-chat-total">—</span>
+            <span class="stat-label">Chat Syncs</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">✅</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-chat-active">—</span>
+            <span class="stat-label">Active</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">📁</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-drive-total">—</span>
+            <span class="stat-label">Drive Syncs</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">🔄</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-drive-active">—</span>
+            <span class="stat-label">Drive Active</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Recent Sync Activity</h2>
+        </div>
+        <div class="card-body">
+          <table class="data-table" id="recent-messages-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Source</th>
+                <th>Author</th>
+                <th>Content</th>
+                <th>Synced To</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="recent-messages-body">
+              <tr>
+                <td colspan="6" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chat Sync Page -->
+    <section class="page" id="page-chat-sync">
+      <div class="page-header">
+        <h1>Chat Sync Configs</h1>
+        <p class="subtitle">Map ClickUp Tasks ↔ Slack Threads ↔ Discord Threads</p>
+        <button class="btn btn-primary" onclick="openModal('chat')">+ Add Sync Config</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="data-table" id="sync-configs-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>ClickUp Task ID</th>
+                <th>Slack Channel</th>
+                <th>Slack Thread</th>
+                <th>Discord Thread</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sync-configs-body">
+              <tr>
+                <td colspan="7" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Drive Sync Page -->
+    <section class="page" id="page-drive-sync">
+      <div class="page-header">
+        <h1>Drive Sync Configs</h1>
+        <p class="subtitle">Sync Google Drive folders from studio → client</p>
+        <button class="btn btn-primary" onclick="openModal('drive')">+ Add Drive Config</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="data-table" id="drive-configs-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Studio Folder ID</th>
+                <th>Client Folder ID</th>
+                <th>Direction</th>
+                <th>Last Synced</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="drive-configs-body">
+              <tr>
+                <td colspan="7" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Logs Page -->
+    <section class="page" id="page-logs">
+      <div class="page-header">
+        <h1>Sync Logs</h1>
+        <p class="subtitle">All synced messages</p>
+        <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="data-table" id="logs-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Config</th>
+                <th>Source</th>
+                <th>Author</th>
+                <th>Content</th>
+                <th>Synced To</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="logs-body">
+              <tr>
+                <td colspan="7" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Name Mappings Page -->
+    <section class="page" id="page-name-mappings">
+      <div class="page-header">
+        <h1>Name Mappings</h1>
+        <p class="subtitle">Custom display names for synced messages</p>
+        <button class="btn btn-primary" onclick="openModal('name-mapping')">+ Add Mapping</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table class="data-table" id="name-mappings-table">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Original Name</th>
+                <th>Custom Name</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="name-mappings-body">
+              <tr>
+                <td colspan="4" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Page -->
+    <section class="page" id="page-settings">
+      <div class="page-header">
+        <h1>Settings</h1>
+        <p class="subtitle">Server status & configuration</p>
+      </div>
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2>Server Status</h2>
+          </div>
+          <div class="card-body" id="server-info">
+            <div class="setting-row">
+              <span class="setting-label">Status</span>
+              <span class="badge badge-success" id="setting-status">—</span>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Uptime</span>
+              <span id="setting-uptime">—</span>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Discord Bot</span>
+              <span id="setting-discord">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Webhook URLs</h2>
+          </div>
+          <div class="card-body">
+            <div class="setting-row">
+              <span class="setting-label">ClickUp Webhook</span>
+              <code class="url-code" id="webhook-clickup">/webhook/clickup</code>
+            </div>
+            <div class="setting-row">
+              <span class="setting-label">Slack Events URL</span>
+              <code class="url-code" id="webhook-slack">/webhook/slack</code>
+            </div>
+            <p class="help-text">Configure these URLs in your ClickUp and Slack app settings. Use your VPS domain +
+              these paths.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Config</h2>
+        <button class="btn-close" onclick="closeModal()">×</button>
+      </div>
+      <form id="modal-form" onsubmit="handleFormSubmit(event)">
+        <div class="modal-body" id="modal-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
