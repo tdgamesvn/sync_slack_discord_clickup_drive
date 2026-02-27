@@ -88,7 +88,7 @@ router.post('/', express.json(), async (req, res) => {
                 cleanText = cleanText.replace(att.filename, '').trim();
             }
 
-            await handleIncomingMessage({
+            handleIncomingMessage({
                 source: 'clickup',
                 action: 'create',
                 sourceId: task_id,
@@ -96,7 +96,7 @@ router.post('/', express.json(), async (req, res) => {
                 author,
                 text: cleanText || commentText,
                 attachments,
-            });
+            }).catch(err => console.error('[ClickUp] Relay error in create:', err));
         }
 
         if (event === 'taskCommentUpdated') {
@@ -111,14 +111,14 @@ router.post('/', express.json(), async (req, res) => {
                 return res.sendStatus(200);
             }
 
-            await handleIncomingMessage({
+            handleIncomingMessage({
                 source: 'clickup',
                 action: 'update',
                 sourceId: task_id,
                 sourceMessageId: commentId,
                 author,
                 text: commentText,
-            });
+            }).catch(err => console.error('[ClickUp] Relay error in update:', err));
         }
 
         res.sendStatus(200);

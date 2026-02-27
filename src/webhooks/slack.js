@@ -114,7 +114,7 @@ router.post('/', rawBodyParser, async (req, res) => {
 
             console.log(`[Slack] Processing CREATE from user ${event.user}: "${msgText.substring(0, 50)}" with ${attachments.length} files`);
 
-            await handleIncomingMessage({
+            handleIncomingMessage({
                 source: 'slack',
                 action: 'create',
                 sourceId: event.thread_ts,
@@ -122,32 +122,32 @@ router.post('/', rawBodyParser, async (req, res) => {
                 author: event.user || 'Unknown',
                 text: msgText,
                 attachments,
-            });
+            }).catch(err => console.error('[Slack] Relay error in create:', err));
         } else if (event.subtype === 'message_changed') {
             const msg = event.message;
             if (isSyncedMessage(msg?.text)) return res.sendStatus(200);
             if (msg?.bot_id) return res.sendStatus(200);
 
-            await handleIncomingMessage({
+            handleIncomingMessage({
                 source: 'slack',
                 action: 'update',
                 sourceId: event.thread_ts || msg?.thread_ts,
                 sourceMessageId: msg?.ts,
                 author: msg?.user || 'Unknown',
                 text: msg?.text || '',
-            });
+            }).catch(err => console.error('[Slack] Relay error in update:', err));
         } else if (event.subtype === 'message_deleted') {
             const msg = event.previous_message;
             if (msg?.bot_id) return res.sendStatus(200);
 
-            await handleIncomingMessage({
+            handleIncomingMessage({
                 source: 'slack',
                 action: 'delete',
                 sourceId: event.thread_ts || msg?.thread_ts,
                 sourceMessageId: msg?.ts || '',
                 author: msg?.user || 'Unknown',
                 text: msg?.text || '',
-            });
+            }).catch(err => console.error('[Slack] Relay error in delete:', err));
         }
 
         res.sendStatus(200);
