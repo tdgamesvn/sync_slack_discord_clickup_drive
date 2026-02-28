@@ -21,8 +21,10 @@ async function postComment(taskId, text, attachmentBuffers = []) {
     // Upload each attachment to the task
     for (const att of attachmentBuffers) {
         try {
-            await uploadAttachment(taskId, att.buffer, att.filename);
-            console.log(`[ClickUp] ✅ Uploaded: ${att.filename}`);
+            // Prepend [SYNC] so the ClickUp webhook can identify and ignore bounced attachments
+            const syncFilename = `[SYNC] ${att.filename}`;
+            await uploadAttachment(taskId, att.buffer, syncFilename);
+            console.log(`[ClickUp] ✅ Uploaded: ${syncFilename}`);
         } catch (err) {
             console.error(`[ClickUp] ❌ Upload failed for ${att.filename}:`, err.response?.data || err.message);
         }

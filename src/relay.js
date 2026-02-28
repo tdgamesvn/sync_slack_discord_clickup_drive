@@ -187,8 +187,28 @@ async function downloadAttachments(attachments, source) {
             if (source === 'slack') {
                 headers.Authorization = `Bearer ${config.SLACK_BOT_TOKEN}`;
             }
-            const { buffer } = await downloadFile(att.url, headers);
-            results.push({ buffer, filename: att.filename || getFilenameFromUrl(att.url) });
+            const { buffer, contentType } = await downloadFile(att.url, headers);
+            let finalName = att.filename || getFilenameFromUrl(att.url);
+
+            // Fix bug where Slack sends extensionless filenames (e.g., "Image from iOS")
+            if (!finalName.includes('.')) {
+                const extMap = {
+                    'image/jpeg': '.jpg',
+                    'image/png': '.png',
+                    'image/gif': '.gif',
+                    'image/webp': '.webp',
+                    'video/mp4': '.mp4',
+                    'application/pdf': '.pdf',
+                    'text/plain': '.txt',
+                    'application/msword': '.doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
+                };
+                if (extMap[contentType]) {
+                    finalName += extMap[contentType];
+                }
+            }
+
+            results.push({ buffer, filename: finalName });
         } catch (err) {
             console.error(`[Relay] Failed to download attachment: ${att.url}`, err.message);
         }

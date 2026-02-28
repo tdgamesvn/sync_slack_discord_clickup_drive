@@ -30,18 +30,11 @@ router.post('/', express.json(), async (req, res) => {
             const commentText = item.comment?.text_content || item.comment?.comment_text || '';
             const commentId = item.comment?.id || '';
 
-            // Skip if the comment was posted by our sync (check prefix)
-            const isSynced = isSyncedMessage(commentText);
-            if (isSynced) {
-                console.log('[ClickUp] Skipping synced message (loop prevention)');
-                return res.sendStatus(200);
-            }
-
             // Extract attachments from comment parts
             const attachments = [];
             if (item.comment?.comment && Array.isArray(item.comment.comment)) {
                 for (const part of item.comment.comment) {
-                    // Type "image" — ClickUp sends images this way
+                    // Type "image"
                     if (part.type === 'image' && part.image) {
                         const img = part.image;
                         const url = img.url_w_host || img.url || img.thumbnail_large || img.thumbnail_small;
@@ -52,7 +45,7 @@ router.post('/', express.json(), async (req, res) => {
                             });
                         }
                     }
-                    // Type "attachment" — ClickUp sends files this way
+                    // Type "attachment"
                     if (part.type === 'attachment' && part.attachment) {
                         const att = part.attachment;
                         const url = att.url_w_host || att.url;
@@ -82,7 +75,29 @@ router.post('/', express.json(), async (req, res) => {
                 console.log(`[ClickUp] Attachment URLs:`, attachments.map(a => a.filename).join(', '));
             }
 
-            // Filter out text that is just the filename (ClickUp puts filename as text_content for image-only comments)
+            // Determine if this is an attachment bounce from our bot
+            let isAttachmentBounce = false;
+            if (attachments.length > 0) {
+                const allSynced = attachments.every(a => a.filename.startsWith('[SYNC] '));
+                if (allSynced) {
+                    let textWithoutFilenames = commentText;
+                    for (const att of attachments) {
+                        textWithoutFilenames = textWithoutFilenames.replace(att.filename, '').trim();
+                    }
+                    if (!textWithoutFilenames) {
+                        isAttachmentBounce = true;
+                    }
+                }
+            }
+
+            // Skip if the comment was posted by our sync (check prefix or check bounce)
+            const isSynced = isSyncedMessage(commentText) || isAttachmentBounce;
+            if (isSynced) {
+                console.log('[ClickUp] Skipping synced message or attachment bounce (loop prevention)');
+                return res.sendStatus(200);
+            }
+
+            // Filter out text that is just the filename
             let cleanText = commentText;
             for (const att of attachments) {
                 cleanText = cleanText.replace(att.filename, '').trim();
