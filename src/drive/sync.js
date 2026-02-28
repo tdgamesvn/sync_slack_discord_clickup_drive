@@ -30,7 +30,7 @@ async function listFiles(folderId) {
     do {
         const res = await driveService.files.list({
             q: `'${folderId}' in parents and trashed = false`,
-            fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
+            fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, md5Checksum)',
             pageSize: 100,
             pageToken,
             supportsAllDrives: true,
@@ -109,11 +109,16 @@ async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
                 console.log(`${indent}[Drive] 📄 Copied: ${sourceFile.name}`);
                 syncedCount++;
             } else if (new Date(sourceFile.modifiedTime) > new Date(existing.modifiedTime)) {
-                // Delete old, copy new (Drive API doesn't support in-place update across accounts)
-                await driveService.files.delete({ fileId: existing.id, supportsAllDrives: true });
-                await copyFile(sourceFile.id, destFolderId, sourceFile.name);
-                console.log(`${indent}[Drive] 🔄 Updated: ${sourceFile.name}`);
-                syncedCount++;
+                // Check if contents are already identical
+                if (sourceFile.md5Checksum && existing.md5Checksum && sourceFile.md5Checksum === existing.md5Checksum) {
+                    console.log(`${indent}[Drive] ⏭️ Skipped (identical): ${sourceFile.name}`);
+                } else {
+                    // Delete old, copy new (Drive API doesn't support in-place update across accounts)
+                    await driveService.files.delete({ fileId: existing.id, supportsAllDrives: true });
+                    await copyFile(sourceFile.id, destFolderId, sourceFile.name);
+                    console.log(`${indent}[Drive] 🔄 Updated: ${sourceFile.name}`);
+                    syncedCount++;
+                }
             }
         }
     }
@@ -139,9 +144,24 @@ async function runDriveSync() {
 
         for (const cfg of configs) {
             try {
-                console.log(`[Drive] Syncing: ${cfg.Title} (${cfg.Sync_Direction || 'studio→client'})`);
+                const direction = cfg.Sync_Direction || 'studio\u2192client';
+                console.log(`[Drive] Syncing: ${cfg.Title} (${direction})`);
 
-                const synced = await syncFolder(cfg.Studio_Folder_ID, cfg.Client_Folder_ID);
+                let synced = 0;
+                let logMessage = '';
+
+                if (direction === 'studio\u2192client' || direction === 'bidirectional') {
+                    const count = await syncFolder(cfg.Studio_Folder_ID, cfg.Client_Folder_ID);
+                    synced += count;
+                    if (count > 0) logMessage += `Copied ${count} files to Client Folder. `;
+                }
+
+                if (direction === 'client\u2192studio' || direction === 'bidirectional') {
+                    const count = await syncFolder(cfg.Client_Folder_ID, cfg.Studio_Folder_ID);
+                    synced += count;
+                    if (count > 0) logMessage += `Copied ${count} files to Studio Folder. `;
+                }
+
                 console.log(`[Drive] ✅ ${cfg.Title}: ${synced} files synced`);
 
                 // Update last synced time
@@ -153,8 +173,8 @@ async function runDriveSync() {
                         source: 'drive',
                         sourceMessageId: `sync_${Date.now()}`,
                         author: 'System',
-                        content: `✅ Copied ${synced} files to Client Folder.`,
-                        syncedTo: 'Client Folder',
+                        content: `✅ ${logMessage.trim()}`,
+                        syncedTo: direction,
                         status: 'success',
                         projectId: cfg.Project_Id
                     });
@@ -169,7 +189,7 @@ async function runDriveSync() {
                     sourceMessageId: `sync_err_${Date.now()}`,
                     author: 'System',
                     content: `❌ Sync failed: ${err.message}`,
-                    syncedTo: 'Client Folder',
+                    syncedTo: cfg.Sync_Direction || 'studio\u2192client',
                     status: 'error',
                     projectId: cfg.Project_Id
                 });

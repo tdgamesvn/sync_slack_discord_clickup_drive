@@ -599,7 +599,8 @@ async function openModal(type, editData = null) {
       <div class="form-group">
         <label>Sync Direction</label>
         <select name="Sync_Direction">
-          <option value="studio→client" ${editData?.Sync_Direction === 'studio→client' ? 'selected' : ''}>Studio → Client</option>
+          <option value="studio\u2192client" ${editData?.Sync_Direction === 'studio\u2192client' ? 'selected' : ''}>Studio \u2192 Client</option>
+          <option value="client\u2192studio" ${editData?.Sync_Direction === 'client\u2192studio' ? 'selected' : ''}>Client \u2192 Studio</option>
           <option value="bidirectional" ${editData?.Sync_Direction === 'bidirectional' ? 'selected' : ''}>Bidirectional</option>
         </select>
       </div>
