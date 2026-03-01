@@ -777,7 +777,7 @@ async function openModal(type, editData = null) {
     body.innerHTML = `
       <div class="form-group">
         <label>ClickUp List ID</label>
-        <input type="text" name="ClickUp_List_ID" placeholder="e.g., 901815849460" value="${esc(listIdVal)}" required>
+        <input type="text" name="List_ID" placeholder="e.g., 901815849460" value="${esc(listIdVal)}" required>
         <span class="help">The ID from the ClickUp URL when viewing a List</span>
       </div>
       <div class="form-group">

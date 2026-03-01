@@ -143,11 +143,21 @@ router.post('/', express.json(), async (req, res) => {
                 const { postMessage, deleteMessage } = require('../platforms/slack-api');
                 const { upsertPMTaskTracking, findListMapping, createSyncConfig, findSyncConfigByPlatformId, deleteSyncConfig } = require('../nocodb');
 
-                const taskDeet = await getTask(task_id);
-                const listId = taskDeet?.list?.id;
-                const taskName = taskDeet?.name || 'Unknown Task';
+                let taskDeet = null;
+                try {
+                    taskDeet = await getTask(task_id);
+                } catch (err) {
+                    if (event === 'taskDeleted') {
+                        console.log(`[ClickUp -> Slack Automation / Tracking] Task ${task_id} deleted or inaccessible. Using fallback data.`);
+                    } else {
+                        throw err;
+                    }
+                }
+
+                const listId = taskDeet?.list?.id || history_items?.[0]?.parent_id || '';
+                const taskName = taskDeet?.name || history_items?.[0]?.after?.name || 'Unknown Task';
                 const taskUrl = taskDeet?.url || '#';
-                const currentStatus = taskDeet?.status?.status || '';
+                const currentStatus = taskDeet?.status?.status || history_items?.[0]?.after?.status?.status || '';
 
                 // --- 1. PM Finance Tracking (Art/Animation Lists) ---
                 if (listId === '901815849460' || listId === '901816296143') {
@@ -158,7 +168,7 @@ router.post('/', express.json(), async (req, res) => {
                         Task_Name: taskName,
                         Status: currentStatus,
                         Job_Type: jobType,
-                        Assignee: taskDeet.assignees?.map(a => a.username).join(', ') || '',
+                        Assignee: taskDeet?.assignees?.map(a => a.username).join(', ') || '',
                         Task_URL: taskUrl
                     };
 

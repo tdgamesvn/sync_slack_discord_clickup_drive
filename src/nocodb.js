@@ -82,7 +82,7 @@ async function getListMappings() {
 async function findListMapping(listId) {
     const mappings = await getListMappings();
     // Use String for robust comparison
-    return mappings.find(m => String(m.ClickUp_List_ID) === String(listId));
+    return mappings.find(m => String(m.List_ID) === String(listId));
 }
 
 async function createListMapping(data) {
