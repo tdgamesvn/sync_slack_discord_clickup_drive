@@ -10,8 +10,7 @@ module.exports = {
 
     // ClickUp
     CLICKUP_API_TOKEN: process.env.CLICKUP_API_TOKEN,
-
-    // Slack
+    CLICKUP_WORKSPACE_ID: process.env.CLICKUP_WORKSPACE_ID,
     SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN,
     SLACK_SIGNING_SECRET: process.env.SLACK_SIGNING_SECRET,
 
