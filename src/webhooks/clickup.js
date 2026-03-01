@@ -187,7 +187,7 @@ router.post('/', express.json(), async (req, res) => {
                     if (event === 'taskCreated' && slackChannelId) {
                         console.log(`[Slack Automation] Starting new thread for task ${task_id} in channel ${slackChannelId}`);
                         // 1. Send the parent message to Slack channel
-                        const slackMsg = await postMessage(slackChannelId, null, `[${currentStatus.toUpperCase()}] <${taskUrl}|${taskName}>`);
+                        const slackMsg = await postMessage(slackChannelId, null, `*[${currentStatus.toUpperCase()}]* <${taskUrl}|${taskName}>`);
 
                         // 2. Register Two-Way Sync into NocoDB
                         await createSyncConfig({
@@ -218,7 +218,7 @@ router.post('/', express.json(), async (req, res) => {
                                 await updateMessage(
                                     slackConfig.Slack_Channel_ID,
                                     slackConfig.Slack_Thread_TS,
-                                    `[${currentStatus.toUpperCase()}] <${taskUrl}|${taskName}>`
+                                    `*[${currentStatus.toUpperCase()}]* <${taskUrl}|${taskName}>`
                                 );
                                 console.log(`[Slack Automation] Updated parent message status to ${currentStatus.toUpperCase()}`);
                             } catch (err) {
