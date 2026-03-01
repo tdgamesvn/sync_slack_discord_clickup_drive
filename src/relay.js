@@ -76,24 +76,35 @@ async function handleIncomingMessage({ source, action, sourceId, sourceMessageId
     console.log(`[Relay] ${action.toUpperCase()} from ${source} | author: ${displayName} | text: "${(text || '').substring(0, 60)}..."`);
 
     const configs = await nocodb.findSyncConfigByPlatformId(source, sourceId);
+    console.log(`[Relay Debug] configs found: ${configs.length}`);
+
     if (!configs.length) {
         console.log(`[Relay] No sync config found for ${source}:${sourceId}, skipping.`);
         return;
     }
 
     for (const syncConfig of configs) {
-        if (!syncConfig.Status || syncConfig.Status.toLowerCase() !== 'active') continue;
+        console.log(`[Relay Debug] Processing config: "${syncConfig.Title}" | Status: ${syncConfig.Status}`);
+
+        if (!syncConfig.Status || syncConfig.Status.toLowerCase() !== 'active') {
+            console.log(`[Relay Debug] Skipping config because status is not active.`);
+            continue;
+        }
 
         const targets = getTargets(source, syncConfig);
+        console.log(`[Relay Debug] Targets resolved: ${JSON.stringify(targets)}`);
         const syncedTo = [];
 
         let fileBuffers = [];
         if (action === 'create' && attachments.length > 0) {
+            console.log(`[Relay Debug] Downloading ${attachments.length} attachments...`);
             fileBuffers = await downloadAttachments(attachments, source);
+            console.log(`[Relay Debug] Download complete. Buffer count: ${fileBuffers.length}`);
         }
 
         for (const target of targets) {
             try {
+                console.log(`[Relay Debug] Forwarding ${action} to ${target.platform}...`);
                 if (action === 'create') {
                     const formatted = formatForPlatform(target.platform, displayName, text);
                     await forwardCreate(target, formatted, fileBuffers);
@@ -113,6 +124,7 @@ async function handleIncomingMessage({ source, action, sourceId, sourceMessageId
         }
 
         // Log to NocoDB with source platform info
+        console.log(`[Relay Debug] Logging message to NocoDB...`);
         await nocodb.logMessage({
             syncConfigTitle: syncConfig.Title,
             source,
