@@ -91,4 +91,22 @@ async function getTask(taskId) {
     return res.data;
 }
 
-module.exports = { postComment, uploadAttachment, updateComment, deleteComment, getComments, getTask };
+/**
+ * Update task status.
+ */
+async function updateTaskStatus(taskId, status) {
+    const res = await api.put(`/task/${taskId}`, {
+        status: status
+    });
+    return res.data;
+}
+
+module.exports = {
+    postComment,
+    uploadAttachment,
+    updateComment,
+    deleteComment,
+    getComments,
+    getTask,
+    updateTaskStatus
+};

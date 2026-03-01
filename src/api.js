@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const nocodb = require('./nocodb');
+const config = require('./config');
 const { authMiddleware, JWT_SECRET } = require('./middleware/auth');
 
 const router = express.Router();
@@ -236,6 +237,69 @@ router.post('/settings', async (req, res) => {
     }
 });
 
+// ─── PM_Tasks_Tracking (Finance Tracking) ───────
+
+router.get('/pm-tracking', async (req, res) => {
+    try {
+        const ids = await nocodb.getTableIds();
+        if (!ids.PM_Tasks_Tracking) {
+            return res.status(500).json({ error: 'PM tracking table not found' });
+        }
+
+        let url = `${config.NOCODB_URL}/api/v2/tables/${ids.PM_Tasks_Tracking}/records?limit=100&offset=0`;
+        const params = [];
+
+        if (req.query.jobType) {
+            params.push(`(Job_Type,eq,${req.query.jobType})`);
+        }
+        if (req.query.paymentStatus) {
+            params.push(`(Payment_Status,eq,${req.query.paymentStatus})`);
+        }
+
+        if (params.length > 0) {
+            url += `&where=${encodeURIComponent(params.join('~and'))}`;
+        }
+
+        console.log("[PM Tracking] Fetching URL:", url);
+
+        const axios = require('axios');
+        const getRes = await axios.get(url, {
+            headers: { 'xc-token': config.NOCODB_API_TOKEN, 'Content-Type': 'application/json' }
+        });
+
+        res.json({ data: getRes.data.list || [], pageInfo: getRes.data.pageInfo });
+    } catch (err) {
+        res.status(500).json({ error: err.response?.data || err.message });
+    }
+});
+
+router.put('/pm-tracking/:id', async (req, res) => {
+    try {
+        const ids = await nocodb.getTableIds();
+        if (!ids.PM_Tasks_Tracking) {
+            return res.status(500).json({ error: 'PM tracking table not found' });
+        }
+        const axios = require('axios');
+
+        // Allowed fields to update from UI: Cost, Payment_Status, Notes
+        const updateData = { Id: parseInt(req.params.id) };
+        if (req.body.Cost !== undefined) updateData.Cost = req.body.Cost;
+        if (req.body.Currency !== undefined) updateData.Currency = req.body.Currency;
+        if (req.body.Payment_Status !== undefined) updateData.Payment_Status = req.body.Payment_Status;
+        if (req.body.Notes !== undefined) updateData.Notes = req.body.Notes;
+
+        const patchRes = await axios.patch(
+            `${config.NOCODB_URL}/api/v2/tables/${ids.PM_Tasks_Tracking}/records`,
+            [updateData],
+            { headers: { 'xc-token': config.NOCODB_API_TOKEN, 'Content-Type': 'application/json' } }
+        );
+
+        res.json({ data: patchRes.data });
+    } catch (err) {
+        res.status(500).json({ error: err.response?.data || err.message });
+    }
+});
+
 // ─── Dashboard Stats ──────────────────────────
 
 router.get('/stats', async (req, res) => {
@@ -285,6 +349,35 @@ router.post('/name-mappings', async (req, res) => {
 router.delete('/name-mappings/:id', async (req, res) => {
     try {
         await nocodb.deleteNameMapping(parseInt(req.params.id));
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── List Mappings ────────────────────────────
+
+router.get('/list-mappings', async (req, res) => {
+    try {
+        const mappings = await nocodb.getListMappings();
+        res.json({ data: mappings });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/list-mappings', async (req, res) => {
+    try {
+        const data = await nocodb.createListMapping(req.body);
+        res.json({ data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/list-mappings/:id', async (req, res) => {
+    try {
+        await nocodb.deleteListMapping(parseInt(req.params.id, 10));
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -71,6 +71,31 @@ async function getAccountByUsername(username) {
     return res.data.list && res.data.list.length > 0 ? res.data.list[0] : null;
 }
 
+// ─── List Mappings ───────────────────────────
+
+async function getListMappings() {
+    const ids = await getTableIds();
+    const res = await api.get(`/tables/${ids.ListMappings}/records`, { params: { limit: 100 } });
+    return res.data.list || [];
+}
+
+async function findListMapping(listId) {
+    const mappings = await getListMappings();
+    return mappings.find(m => m.List_ID === listId);
+}
+
+async function createListMapping(data) {
+    const ids = await getTableIds();
+    const res = await api.post(`/tables/${ids.ListMappings}/records`, data);
+    return res.data;
+}
+
+async function deleteListMapping(rowId) {
+    const ids = await getTableIds();
+    const res = await api.delete(`/tables/${ids.ListMappings}/records`, { data: [{ Id: rowId }] });
+    return res.data;
+}
+
 // ─── SyncConfigs ──────────────────────────────
 
 async function getSyncConfigs(where) {
@@ -227,6 +252,56 @@ async function deleteNameMapping(rowId) {
     return res.data;
 }
 
+// ─── PM_Tasks_Tracking (Finance Tracking) ───────
+async function upsertPMTaskTracking(taskData) {
+    const ids = await getTableIds();
+    if (!ids.PM_Tasks_Tracking) {
+        console.error('[NocoDB] PM_Tasks_Tracking table not found via getTableIds cache.');
+        return null;
+    }
+
+    try {
+        // Try to get existing record
+        const existRes = await api.get(`/tables/${ids.PM_Tasks_Tracking}/records`, {
+            params: { where: `(Task_ID,eq,${taskData.Task_ID})`, limit: 1 }
+        });
+
+        const existing = existRes.data.list && existRes.data.list.length > 0 ? existRes.data.list[0] : null;
+
+        if (existing) {
+            // Update mapping
+            const updatePayload = {
+                Id: existing.Id,
+                Task_Name: taskData.Task_Name,
+                Status: taskData.Status,
+                Job_Type: taskData.Job_Type,
+                Assignee: taskData.Assignee,
+                Task_URL: taskData.Task_URL
+            };
+            // Note: We deliberately do NOT update 'Cost', 'Payment_Status', 'Notes' 
+            // as those are managed independently by the PM on the NocoDB UI.
+            const patchRes = await api.patch(`/tables/${ids.PM_Tasks_Tracking}/records`, [updatePayload]);
+            return patchRes.data;
+        } else {
+            // Create mapping
+            const insertPayload = {
+                Task_ID: taskData.Task_ID,
+                Task_Name: taskData.Task_Name,
+                Status: taskData.Status,
+                Job_Type: taskData.Job_Type,
+                Assignee: taskData.Assignee,
+                Task_URL: taskData.Task_URL,
+                Payment_Status: 'Unpaid' // Default value
+            };
+            const postRes = await api.post(`/tables/${ids.PM_Tasks_Tracking}/records`, insertPayload);
+            return postRes.data;
+        }
+    } catch (err) {
+        console.error('[NocoDB] upsertPMTaskTracking Error:', err.response?.data || err.message);
+        throw err;
+    }
+}
+
 module.exports = {
     getTableIds,
     getSyncConfigs,
@@ -246,11 +321,21 @@ module.exports = {
     resolveDisplayName,
     createNameMapping,
     deleteNameMapping,
+    getAccountByUsername,
+    getListMappings,
+    findListMapping,
+    createListMapping,
+    deleteListMapping,
+    getSyncConfigs,
+    findSyncConfigByPlatformId,
+    createSyncConfig,
+    updateSyncConfig,
+    deleteSyncConfig,
     getCustomers,
     createCustomer,
     deleteCustomer,
     getProjects,
     createProject,
     deleteProject,
-    getAccountByUsername
+    upsertPMTaskTracking
 };

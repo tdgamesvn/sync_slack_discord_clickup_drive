@@ -1,0 +1,24 @@
+
+--- Checking List ID: 901815849460 ---
+List Name: Art
+Statuses:
+  - new request (Color: #b5bcc2, Type: open)
+  - in progess (Color: #f8ae00, Type: custom)
+  - fix (Color: #b660e0, Type: custom)
+  - lead_check (Color: #4466ff, Type: custom)
+  - client_review (Color: #f76808, Type: custom)
+  - approved (Color: #30a46c, Type: done)
+  - cancelled (Color: #8d8d8d, Type: done)
+  - Closed (Color: #008844, Type: closed)
+
+--- Checking List ID: 901816296143 ---
+List Name: Animation
+Statuses:
+  - new request (Color: #b5bcc2, Type: open)
+  - in progess (Color: #f8ae00, Type: custom)
+  - fix (Color: #b660e0, Type: custom)
+  - lead_check (Color: #4466ff, Type: custom)
+  - client_review (Color: #f76808, Type: custom)
+  - approved (Color: #30a46c, Type: done)
+  - cancelled (Color: #8d8d8d, Type: done)
+  - Closed (Color: #008844, Type: closed)

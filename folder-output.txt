@@ -1,0 +1,28 @@
+Checking Folder ID: 901812123617 (Space ID: 90189735762)...
+
+Folder Name: Orca_Project
+
+Found 3 List(s) in this Folder:
+  └─ List: Form (ID: 901816364915)
+      └─ Tasks: 0 (fetching max 100 per page, including subtasks)
+  └─ List: Art (ID: 901815849460)
+      └─ Tasks: 8 (fetching max 100 per page, including subtasks)
+          - [approved] [2D Modeling] [Character] Tasmanian Devil (Taz) (ID: 86ewrndqk)
+          - [approved] [2D Modeling] [Character] TestB (ID: 86ewrn9q7)
+          - [client_review] [2D Modeling] [Character] Duck Dodgers (ID: 86ewrmt5h)
+          - [client_review] [2D Modeling] [Character] Aquamarine (ID: 86ewrmrmt)
+          - [approved] [2D Modeling] [Character] Sylvester (ID: 86ewrmrcc)
+          - [approved] [2D Modeling] [Character] Ice King Finn (ID: 86ewrmr1n)
+          - [approved] [2D Modeling] [Character] Finn the Human (ID: 86ewrmqg9)
+          - [new request] [2D Modeling] [Character] Marvin the Martian (ID: 86ewrmhc5)
+  └─ List: Animation (ID: 901816296143)
+      └─ Tasks: 9 (fetching max 100 per page, including subtasks)
+          - [new request] [2D Animation] [Character]  (ID: 86ewrqck6)
+          - [approved] [2D Animation] [Character] Ice King Finn (ID: 86ewrnmz6)
+          - [approved] [2D Animation] [Character] Finn the Human (ID: 86ewrnmec)
+          - [approved] [2D Animation] [Character] Tweety Bird (ID: 86ewrnkaq)
+          - [approved] [2D Animation] [Character] Tasmanian Devil (Taz) (ID: 86ewrnjdb)
+          - [approved] [2D Animation] [Character] Garnet (ID: 86ewrnj5p)
+          - [approved] [2D Animation] [Boss] Lich (ID: 86ewrnh5j)
+          - [in progess] [2D Animation] [Character] BMO (ID: 86ewrmru0)
+          - [approved] [2D Animation] [Character] Bugs Bunny (ID: 86ewrmqwy)

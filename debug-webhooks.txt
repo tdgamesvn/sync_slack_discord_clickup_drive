@@ -1,0 +1,164 @@
+Team: TD Consulting Workspaces (9018584562)
+{
+  "webhooks": [
+    {
+      "id": "a7060697-3ac5-4d77-91b7-3e6933a51d1e",
+      "userid": 152442037,
+      "team_id": 9018584562,
+      "endpoint": "https://n8n.tdconsulting.vn/webhook/49f06de4-1b52-40db-9368-f36f8a42111f/webhook",
+      "client_id": "pk_152442037_6APMVET87WYMB74CFNRCUJDF3JOGSCDC",
+      "events": [
+        "taskStatusUpdated"
+      ],
+      "task_id": null,
+      "list_id": null,
+      "folder_id": null,
+      "space_id": 90187327148,
+      "view_id": null,
+      "health": {
+        "status": "active",
+        "fail_count": 0
+      },
+      "secret": "4XVC8UX8VOMBWIX8I7FNU9KURBU21N8STH8SIM6WW0Q4B99C02SNHI9FLFZORR2B"
+    },
+    {
+      "id": "588d3398-0474-49b8-a4d7-ec553527a34c",
+      "userid": 152442037,
+      "team_id": 9018584562,
+      "endpoint": "https://sync.tdgamestudio.com/webhook/clickup",
+      "client_id": "pk_152442037_2ZEMMX3SH944CLF7J0VAFS5CJK39R3EM",
+      "events": [
+        "taskCommentPosted",
+        "taskCommentUpdated"
+      ],
+      "task_id": null,
+      "list_id": null,
+      "folder_id": null,
+      "space_id": null,
+      "view_id": null,
+      "health": {
+        "status": "active",
+        "fail_count": 0
+      },
+      "secret": "6CRG2S80VOS6YRQ8487JLE2FBQZRW0QQJCTB9G1CJOSJP08VLEBVRJ9KKJ7RUT09"
+    }
+  ]
+}
+Team: TDGAMES_MANAGER (9018621527)
+{
+  "webhooks": [
+    {
+      "id": "04fa3ac1-ca9d-4b0a-928a-cfeb623fb3f8",
+      "userid": 152442037,
+      "team_id": 9018621527,
+      "endpoint": "https://n8n.tdconsulting.vn/webhook/1f0e8f22-70bb-4c9c-aad7-f1624ab476fa/webhook",
+      "client_id": "pk_152442037_6APMVET87WYMB74CFNRCUJDF3JOGSCDC",
+      "events": [
+        "taskCreated",
+        "taskCommentUpdated",
+        "taskCommentPosted",
+        "taskStatusUpdated"
+      ],
+      "task_id": null,
+      "list_id": null,
+      "folder_id": null,
+      "space_id": 90189735762,
+      "view_id": null,
+      "health": {
+        "status": "active",
+        "fail_count": 0
+      },
+      "secret": "87GCOWKTF8TYH96OD56ME8LOM9PL7IVJKTKJLE0A0SQ6DZC0LWIWI00B67WA3WKP"
+    },
+    {
+      "id": "c09a2196-261c-47a6-a479-73fa6c255d90",
+      "userid": 152442037,
+      "team_id": 9018621527,
+      "endpoint": "https://n8n.tdconsulting.vn/webhook-test/aa51c0c8-2330-42c0-a4d0-2c12be2ce22d/webhook",
+      "client_id": "pk_152442037_6APMVET87WYMB74CFNRCUJDF3JOGSCDC",
+      "events": [
+        "taskStatusUpdated"
+      ],
+      "task_id": null,
+      "list_id": null,
+      "folder_id": 90183021059,
+      "space_id": null,
+      "view_id": null,
+      "health": {
+        "status": "suspended",
+        "fail_count": 100,
+        "date_suspended": "1752820166587"
+      },
+      "secret": "WI5PSKJ26IGY6VFOID48B7S44XSI3BPBFYXV0AHFT8MT3ABR5RRNX9GEQ1RFM2WR"
+    },
+    {
+      "id": "a7fda5f7-3819-4266-a6d3-a705198d06b8",
+      "userid": 152442037,
+      "team_id": 9018621527,
+      "endpoint": "https://td-chat-sync.nport.link/webhook/clickup",
+      "client_id": "pk_152442037_2ZEMMX3SH944CLF7J0VAFS5CJK39R3EM",
+      "events": [
+        "taskCommentPosted",
+        "taskCommentUpdated"
+      ],
+      "task_id": null,
+      "list_id": null,
+      "folder_id": null,
+      "space_id": null,
+      "view_id": null,
+      "health": {
+        "status": "suspended",
+        "fail_count": 100,
+        "date_suspended": "1772203990536"
+      },
+      "secret": "BGAXUZLY1OFIH7R87QHJLMXAEKJOJ6VH25DG4EFPUC7BGC43YZ0OINQ1PIL3UODP"
+    },
+    {
+      "id": "df89b52d-cfc3-42fb-b7ff-6cd8c861824d",
+      "userid": 152442037,
+      "team_id": 9018621527,
+      "endpoint": "https://hook.us2.make.com/opsg3cs9qy7cmxdpj04riip8nw27tp47",
+      "client_id": "JEPMK95H1RNZZ5T15R1XSF2V57L72KVY",
+      "events": [
+        "taskCreated",
+        "taskUpdated"
+      ],
+      "task_id": null,
+      "list_id": 901805909068,
+      "folder_id": null,
+      "space_id": null,
+      "view_id": null,
+      "health": {
+        "status": "failing",
+        "fail_count": 4
+      },
+      "secret": "7AZUGF7GVC7YW7F60B7RQF9HI63SA3KEYDVAVOW13LQEIRMJNSIQAINM7UUDQRJA"
+    },
+    {
+      "id": "5bce01cf-65b5-4a77-8ad1-6abbda478835",
+      "userid": 152442037,
+      "team_id": 9018621527,
+      "endpoint": "https://hook.us2.make.com/u3oafg1budw6hwkucoe8mlnteeeswu5z",
+      "client_id": "JEPMK95H1RNZZ5T15R1XSF2V57L72KVY",
+      "events": [
+        "taskCreated",
+        "taskUpdated",
+        "taskStatusUpdated"
+      ],
+      "task_id": null,
+      "list_id": 901805909068,
+      "folder_id": null,
+      "space_id": null,
+      "view_id": null,
+      "health": {
+        "status": "failing",
+        "fail_count": 56
+      },
+      "secret": "YCBX0BUS7POSX3L61QARY5OQI4CS9GV7CXMWN9SWA7HAVCE4RTLZE0D34O2PL325"
+    }
+  ]
+}
+Team: TD_Solutions (90181692796)
+{
+  "webhooks": []
+}

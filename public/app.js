@@ -86,10 +86,12 @@ function switchPage(page) {
   if (page === 'dashboard') loadDashboard();
   if (page === 'chat-sync') { loadChatFilters(); loadSyncConfigs(); }
   if (page === 'drive-sync') { loadDriveFilters(); loadDriveConfigs(); }
+  if (page === 'pm-tracking') { loadPMTracking(); }
   if (page === 'customers') loadCustomers();
   if (page === 'projects') loadProjects();
   if (page === 'logs') { loadLogFilters(); loadLogs(); }
   if (page === 'name-mappings') loadNameMappings();
+  if (page === 'list-mappings') loadListMappings();
   if (page === 'settings') loadSettings();
 }
 
@@ -296,6 +298,70 @@ async function editDriveConfig(id) {
   }
 }
 
+// ─── PM Tracking ──────────────────────────────
+async function loadPMTracking() {
+  try {
+    const tbody = document.getElementById('pm-tracking-body');
+    const jobType = document.getElementById('pm-filter-jobtype')?.value;
+    const paymentStatus = document.getElementById('pm-filter-payment')?.value;
+
+    let url = `${API}/api/pm-tracking?limit=100`;
+    if (jobType) url += `&jobType=${encodeURIComponent(jobType)}`;
+    if (paymentStatus) url += `&paymentStatus=${encodeURIComponent(paymentStatus)}`;
+
+    const res = await apiFetch(url);
+    const { data } = await res.json();
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No tracking data found for the selected filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((t) => `
+      <tr>
+        <td><strong>${esc(t.Job_Type || '—')}</strong></td>
+        <td><a href="${esc(t.Task_URL || '#')}" target="_blank" style="color: #667eea; text-decoration: none;">${esc(t.Task_Name || '—')}</a> <br><small style="color: #888;">${esc(t.Task_ID || '')}</small></td>
+        <td>${statusBadge(t.Status)}</td>
+        <td>${esc(t.Assignee || '—')}</td>
+        <td style="font-weight: bold; color: #38f9d7;">
+          ${(t.Cost !== null && t.Cost !== undefined) ? (t.Currency === 'VND' ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(t.Cost) : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(t.Cost)) : '$0.00'}
+        </td>
+        <td>
+          <select class="form-group" style="padding: 4px; font-size: 12px; background: var(--bg); color: var(--text);" onchange="updatePaymentStatus(${t.Id}, this.value)">
+            <option value="Unpaid" ${!t.Payment_Status || t.Payment_Status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+            <option value="Advance Paid" ${t.Payment_Status === 'Advance Paid' ? 'selected' : ''}>Advance Paid</option>
+            <option value="Fully Paid" ${t.Payment_Status === 'Fully Paid' ? 'selected' : ''}>Fully Paid</option>
+          </select>
+        </td>
+        <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${esc(t.Notes || '')}">${esc(t.Notes || '—')}</td>
+        <td class="action-btns">
+          <button class="btn btn-sm btn-secondary" onclick='editPMTracking(${JSON.stringify(t).replace(/'/g, "&apos;")})'>✏️ Edit (Local)</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    console.error('Load PM tracking failed:', err);
+  }
+}
+
+function editPMTracking(taskData) {
+  openModal('pm-tracking', taskData);
+}
+
+async function updatePaymentStatus(id, newStatus) {
+  try {
+    const res = await apiFetch(`${API}/api/pm-tracking/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ Payment_Status: newStatus }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error('Update failed');
+  } catch (err) {
+    alert('Failed to update payment status: ' + err.message);
+    loadPMTracking(); // reload to revert to original state
+  }
+}
+
 // ─── Logs ─────────────────────────────────────
 let allCustomers = [];
 let allProjects = [];
@@ -390,6 +456,63 @@ async function loadSettings() {
   } catch (err) {
     document.getElementById('setting-status').textContent = 'offline';
     document.getElementById('setting-status').className = 'badge badge-error';
+  }
+}
+
+// ─── List Mappings ────────────────────────────
+async function loadListMappings() {
+  try {
+    console.log('[List Mappings] Loading list mappings API...');
+    const res = await apiFetch(`${API}/api/list-mappings`);
+    const payload = await res.json();
+    console.log('[List Mappings] API response payload:', payload);
+    const data = payload.data;
+
+    const tbody = document.getElementById('list-mappings-body');
+    if (!tbody) {
+      console.error('[List Mappings] Fatal error: tbody list-mappings-body not found');
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No list mappings configured yet. Click "+ Add Mapping" to set auto-sync for a ClickUp List.</td></tr>';
+      return;
+    }
+
+    console.log('[List Mappings] Found records, fetching dropdowns...');
+    // Need customer and project names for display instead of IDs
+    await fetchDropdownData();
+    const custMap = new Map(allCustomers.map(c => [c.Id, c.Title]));
+    const projMap = new Map(allProjects.map(p => [p.Id, p.Title]));
+
+    console.log('[List Mappings] Drawing table...');
+    tbody.innerHTML = data.map((m) => `
+          <tr>
+            <td><code>${esc(m.List_ID || '—')}</code></td>
+            <td><code>${esc(m.Slack_Channel_ID || '—')}</code></td>
+            <td>${esc(m.Slack_Review_User_IDs || '—')}</td>
+            <td>${esc(custMap.get(m.Customer_Id) || m.Customer_Id || '—')}</td>
+            <td>${esc(projMap.get(m.Project_Id) || m.Project_Id || '—')}</td>
+            <td class="action-btns">
+              <button class="btn btn-sm btn-danger" onclick="deleteListMapping(${m.Id})">🗑️</button>
+            </td>
+          </tr>
+        `).join('');
+    console.log('[List Mappings] Done loadListMappings.');
+  } catch (err) {
+    console.error('Load list mappings failed:', err);
+    const tbody = document.getElementById('list-mappings-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-state badge-error">Error loading mappings: ${err.message}</td></tr>`;
+  }
+}
+
+async function deleteListMapping(id) {
+  if (!confirm('Delete this mapping? Auto-sync will stop for this ClickUp List.')) return;
+  try {
+    await apiFetch(`${API}/api/list-mappings/${id}`, { method: 'DELETE' });
+    loadListMappings();
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
   }
 }
 
@@ -634,6 +757,39 @@ async function openModal(type, editData = null) {
         <span class="help">The name you want to show in synced messages</span>
       </div>
     `;
+  } else if (type === 'list-mapping') {
+    title.textContent = 'Add List Mapping';
+    body.innerHTML = `
+      <div class="form-group">
+        <label>ClickUp List ID</label>
+        <input type="text" name="List_ID" placeholder="e.g., 901815849460" required>
+        <span class="help">The ID from the ClickUp URL when viewing a List</span>
+      </div>
+      <div class="form-group">
+        <label>Slack Channel ID</label>
+        <input type="text" name="Slack_Channel_ID" placeholder="e.g., C012345678" required>
+        <span class="help">The slack channel to create the auto thread in</span>
+      </div>
+      <div class="form-group">
+        <label>Slack Users to Ping (Review)</label>
+        <input type="text" name="Slack_Review_User_IDs" placeholder="e.g., <@U0123> <@U0456>">
+        <span class="help">Raw Slack IDs of the users to tag when status moves to CLIENT_REVIEW</span>
+      </div>
+      <div class="form-group">
+        <label>Customer</label>
+        <select name="Customer_Id" required>
+          <option value="">-- Select Customer --</option>
+          ${customerOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Project</label>
+        <select name="Project_Id">
+          <option value="">-- None --</option>
+          ${projectOptions}
+        </select>
+      </div>
+    `;
   } else if (type === 'customer') {
     title.textContent = 'Add Customer';
     body.innerHTML = `
@@ -654,6 +810,37 @@ async function openModal(type, editData = null) {
         <select name="Customer_Id" required>
           ${customerOptions}
         </select>
+      </div>
+    `;
+  } else if (type === 'pm-tracking') {
+    title.textContent = 'Edit PM Tracking: ' + (esc(editData?.Task_Name) || '');
+    body.innerHTML = `
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label>Task Status (Synced from ClickUp)</label>
+        <div>${statusBadge(editData?.Status, editData?.Status)}</div>
+      </div>
+      <div class="form-group">
+        <label>Currency</label>
+        <select name="Currency">
+          <option value="USD" ${editData?.Currency === 'USD' || !editData?.Currency ? 'selected' : ''}>USD</option>
+          <option value="VND" ${editData?.Currency === 'VND' ? 'selected' : ''}>VND</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cost</label>
+        <input type="number" step="0.01" name="Cost" placeholder="0.00" value="${editData?.Cost || ''}">
+      </div>
+      <div class="form-group">
+        <label>Payment Status</label>
+        <select name="Payment_Status">
+          <option value="Unpaid" ${editData?.Payment_Status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
+          <option value="Advance Paid" ${editData?.Payment_Status === 'Advance Paid' ? 'selected' : ''}>Advance Paid</option>
+          <option value="Fully Paid" ${editData?.Payment_Status === 'Fully Paid' ? 'selected' : ''}>Fully Paid</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="Notes" rows="3" placeholder="Additional notes...">${esc(editData?.Notes || '')}</textarea>
       </div>
     `;
   }
@@ -684,6 +871,10 @@ async function handleFormSubmit(e) {
       endpoint = 'name-mappings';
       method = 'POST';
       url = `${API}/api/${endpoint}`;
+    } else if (currentModalType === 'list-mapping') {
+      endpoint = 'list-mappings';
+      method = 'POST';
+      url = `${API}/api/${endpoint}`;
     } else if (currentModalType === 'customer') {
       endpoint = 'customers';
       method = 'POST';
@@ -692,6 +883,11 @@ async function handleFormSubmit(e) {
       endpoint = 'projects';
       method = 'POST';
       url = `${API}/api/${endpoint}`;
+    } else if (currentModalType === 'pm-tracking') {
+      endpoint = 'pm-tracking';
+      method = 'PUT'; // Only update is allowed via UI
+      url = `${API}/api/${endpoint}/${currentEditId}`;
+      if (data.Cost) data.Cost = parseFloat(data.Cost);
     } else {
       endpoint = currentModalType === 'chat' ? 'sync-configs' : 'drive-configs';
       method = currentEditId ? 'PUT' : 'POST';
@@ -722,10 +918,22 @@ async function handleFormSubmit(e) {
     if (currentModalType === 'chat') loadSyncConfigs();
     else if (currentModalType === 'drive') loadDriveConfigs();
     else if (currentModalType === 'name-mapping') loadNameMappings();
+    else if (currentModalType === 'list-mapping') loadListMappings();
     else if (currentModalType === 'customer') loadCustomers();
     else if (currentModalType === 'project') loadProjects();
+    else if (currentModalType === 'pm-tracking') loadPMTracking();
   } catch (err) {
     alert('Save failed: ' + err.message);
+  }
+}
+
+async function deleteListMapping(id) {
+  if (!confirm('Are you sure you want to delete this list mapping?')) return;
+  try {
+    await apiFetch(`${API}/api/list-mappings/${id}`, { method: 'DELETE' });
+    loadListMappings();
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
   }
 }
 
