@@ -140,7 +140,7 @@ router.post('/', express.json(), async (req, res) => {
         if (event === 'taskCreated' || event === 'taskUpdated' || event === 'taskDeleted') {
             try {
                 const { getTask } = require('../platforms/clickup-api');
-                const { postMessage, deleteMessage } = require('../platforms/slack-api');
+                const { postMessage, updateMessage, deleteMessage } = require('../platforms/slack-api');
                 const { upsertPMTaskTracking, findListMapping, createSyncConfig, findSyncConfigByPlatformId, deleteSyncConfig } = require('../nocodb');
 
                 let taskDeet = null;
@@ -187,7 +187,7 @@ router.post('/', express.json(), async (req, res) => {
                     if (event === 'taskCreated' && slackChannelId) {
                         console.log(`[Slack Automation] Starting new thread for task ${task_id} in channel ${slackChannelId}`);
                         // 1. Send the parent message to Slack channel
-                        const slackMsg = await postMessage(slackChannelId, null, `🆕 *New Task Created:*\n<${taskUrl}|${taskName}>`);
+                        const slackMsg = await postMessage(slackChannelId, null, `[${currentStatus.toUpperCase()}] <${taskUrl}|${taskName}>`);
 
                         // 2. Register Two-Way Sync into NocoDB
                         await createSyncConfig({
@@ -205,18 +205,33 @@ router.post('/', express.json(), async (req, res) => {
                     }
 
                     if (event === 'taskUpdated') {
-                        // Check if status changed to CLIENT_REVIEW
-                        const isReviewStatus = currentStatus.toUpperCase() === 'CLIENT_REVIEW' || currentStatus.toLowerCase() === 'client review';
-
                         // We need the history payload to see if status ACTUALLY changed this exact webhook invocation, to prevent spam.
                         const historyItem = history_items?.[0];
                         const fieldChanged = historyItem?.field === 'status';
 
+                        const configs = await findSyncConfigByPlatformId('clickup', task_id);
+                        const slackConfig = configs.find(c => c.Slack_Thread_TS);
+
+                        // If status changed, update the parent message in Slack to reflect the new status
+                        if (fieldChanged && slackConfig) {
+                            try {
+                                await updateMessage(
+                                    slackConfig.Slack_Channel_ID,
+                                    slackConfig.Slack_Thread_TS,
+                                    `[${currentStatus.toUpperCase()}] <${taskUrl}|${taskName}>`
+                                );
+                                console.log(`[Slack Automation] Updated parent message status to ${currentStatus.toUpperCase()}`);
+                            } catch (err) {
+                                console.error('[Slack Automation] Failed to update parent message:', err.message);
+                            }
+                        }
+
+                        // Check if status changed to CLIENT_REVIEW
+                        const isReviewStatus = currentStatus.toUpperCase() === 'CLIENT_REVIEW' || currentStatus.toLowerCase() === 'client review';
+
                         if (isReviewStatus && fieldChanged && slackReviewUsers) {
                             console.log(`[Slack Automation] Task ${task_id} moved to Review. Tagging users...`);
                             // Find the Slack thread to post into
-                            const configs = await findSyncConfigByPlatformId('clickup', task_id);
-                            const slackConfig = configs.find(c => c.Slack_Thread_TS);
 
                             if (slackConfig) {
                                 await postMessage(
