@@ -229,15 +229,21 @@ router.post('/', express.json(), async (req, res) => {
                         // Check if status changed to CLIENT_REVIEW
                         const isReviewStatus = currentStatus.toUpperCase() === 'CLIENT_REVIEW' || currentStatus.toLowerCase() === 'client review';
 
-                        if (isReviewStatus && fieldChanged && slackReviewUsers) {
-                            console.log(`[Slack Automation] Task ${task_id} moved to Review. Tagging users...`);
-                            // Find the Slack thread to post into
+                        if (isReviewStatus && fieldChanged) {
+                            console.log(`[Slack Automation] Task ${task_id} moved to Review. Resolving users to tag...`);
 
-                            if (slackConfig) {
+                            // Determine who to tag: Custom Field overrides the mapping default
+                            let finalTagString = slackReviewUsers || '';
+                            const customTagField = taskDeet?.custom_fields?.find(f => f.name && f.name.toUpperCase() === 'USERS TO TAG (REVIEW)');
+                            if (customTagField && customTagField.value) {
+                                finalTagString = customTagField.value; // It's a Text field containing raw string like <@U1234>
+                            }
+
+                            if (finalTagString && slackConfig) {
                                 await postMessage(
                                     slackConfig.Slack_Channel_ID,
                                     slackConfig.Slack_Thread_TS,
-                                    `🔔 *Please review this task:* <${taskUrl}|${taskName}>\n${slackReviewUsers}`
+                                    `🔔 *Please review this task:* <${taskUrl}|${taskName}>\n${finalTagString}`
                                 );
                             }
                         }

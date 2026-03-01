@@ -1,0 +1,22 @@
+[
+  {
+    "Id": 3,
+    "CreatedAt": "2026-03-01 12:37:23+00:00",
+    "UpdatedAt": null,
+    "Title": "[2D Modeling] [Character] Ngoc Diep",
+    "ClickUp_Task_ID": "86ewrw3uv",
+    "Slack_Channel_ID": "C08EQRZ1QAC",
+    "Slack_Thread_TS": "1772367884.963839",
+    "Discord_Channel_ID": null,
+    "Discord_Thread_ID": null,
+    "Status": "Active",
+    "Created_At": null,
+    "Project_Id": 1,
+    "Sync_ClickUp_To_Slack": true,
+    "Sync_ClickUp_To_Discord": false,
+    "Sync_Slack_To_ClickUp": true,
+    "Sync_Slack_To_Discord": false,
+    "Sync_Discord_To_ClickUp": false,
+    "Sync_Discord_To_Slack": false
+  }
+]

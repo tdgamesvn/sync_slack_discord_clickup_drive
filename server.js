@@ -99,6 +99,12 @@ async function start() {
         driveSync.runDriveSync();
     });
 
+    // 5.1 Schedule Review Reminders cron (every 30 minutes)
+    const { checkReviewReminders } = require('./src/jobs/reminders');
+    cron.schedule('*/30 * * * *', () => {
+        checkReviewReminders();
+    });
+
     // 6. Start HTTP server
     app.listen(config.PORT, () => {
         console.log('═══════════════════════════════════════');
