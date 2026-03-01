@@ -63,19 +63,15 @@ async function checkReviewReminders() {
                                 const slackConfig = configs.find(c => c.Slack_Thread_TS && c.Status && c.Status.toLowerCase() === 'active');
 
                                 if (slackConfig) {
-                                    // 2. Extract USERS TO TAG (REVIEW) custom field
+                                    // 2. Extract USERS TO TAG (REVIEW) from NocoDB mapping
                                     let finalTagString = mapping.Slack_Review_User_IDs || '';
-                                    const customTagField = task.custom_fields?.find(f => f.name && f.name.toUpperCase() === 'USERS TO TAG (REVIEW)');
-                                    if (customTagField && customTagField.value) {
-                                        finalTagString = customTagField.value;
-                                    }
 
                                     if (finalTagString) {
                                         console.log(`[Reminder] Sending 24h reminder for task ${task.id} to Slack thread ${slackConfig.Slack_Thread_TS}`);
                                         await postMessage(
                                             slackConfig.Slack_Channel_ID,
                                             slackConfig.Slack_Thread_TS,
-                                            `⏳ *Reminder:* It has been 24 hours since this task was sent for review. Please take a look!\n${finalTagString}`
+                                            `${finalTagString}`
                                         );
 
                                         // Mark as reminded
