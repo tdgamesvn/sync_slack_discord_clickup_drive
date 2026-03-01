@@ -221,7 +221,7 @@ router.post('/', express.json(), async (req, res) => {
                     if (event === 'taskDeleted') {
                         console.log(`[Slack Automation] Task ${task_id} deleted. Removing Slack thread...`);
                         const configs = await findSyncConfigByPlatformId('clickup', task_id);
-                        const slackConfig = configs.find(c => c.Slack_Thread_TS && c.Status === 'active');
+                        const slackConfig = configs.find(c => c.Slack_Thread_TS && c.Status && c.Status.toLowerCase() === 'active');
 
                         if (slackConfig) {
                             try {

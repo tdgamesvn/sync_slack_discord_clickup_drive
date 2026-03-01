@@ -82,7 +82,7 @@ async function handleIncomingMessage({ source, action, sourceId, sourceMessageId
     }
 
     for (const syncConfig of configs) {
-        if (syncConfig.Status !== 'active') continue;
+        if (!syncConfig.Status || syncConfig.Status.toLowerCase() !== 'active') continue;
 
         const targets = getTargets(source, syncConfig);
         const syncedTo = [];

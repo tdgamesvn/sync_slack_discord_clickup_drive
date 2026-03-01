@@ -108,10 +108,11 @@ async function getSyncConfigs(where) {
 
 async function findSyncConfigByPlatformId(platform, id) {
     const configs = await getSyncConfigs();
+    const strId = String(id);
     return configs.filter((c) => {
-        if (platform === 'clickup') return c.ClickUp_Task_ID === id;
-        if (platform === 'slack') return c.Slack_Thread_TS === id;
-        if (platform === 'discord') return c.Discord_Thread_ID === id;
+        if (platform === 'clickup') return String(c.ClickUp_Task_ID) === strId;
+        if (platform === 'slack') return String(c.Slack_Thread_TS) === strId;
+        if (platform === 'discord') return String(c.Discord_Thread_ID) === strId;
         return false;
     });
 }
