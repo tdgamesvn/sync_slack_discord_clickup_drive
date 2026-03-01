@@ -486,18 +486,25 @@ async function loadListMappings() {
     const projMap = new Map(allProjects.map(p => [p.Id, p.Title]));
 
     console.log('[List Mappings] Drawing table...');
-    tbody.innerHTML = data.map((m) => `
+    tbody.innerHTML = data.map((m) => {
+      const listId = m.ClickUp_List_ID || m.List_ID || '';
+      const custVal = typeof m.Customer_Id === 'object' && m.Customer_Id !== null ? (m.Customer_Id.Title || m.Customer_Id.Id) : (custMap.get(m.Customer_Id) || m.Customer_Id);
+      const projVal = typeof m.Project_Id === 'object' && m.Project_Id !== null ? (m.Project_Id.Title || m.Project_Id.Id) : (projMap.get(m.Project_Id) || m.Project_Id);
+
+      return `
           <tr>
-            <td><code>${esc(m.List_ID || '—')}</code></td>
+            <td><code>${esc(listId || '—')}</code></td>
             <td><code>${esc(m.Slack_Channel_ID || '—')}</code></td>
             <td>${esc(m.Slack_Review_User_IDs || '—')}</td>
-            <td>${esc(custMap.get(m.Customer_Id) || m.Customer_Id || '—')}</td>
-            <td>${esc(projMap.get(m.Project_Id) || m.Project_Id || '—')}</td>
+            <td>${esc(custVal || '—')}</td>
+            <td>${esc(projVal || '—')}</td>
             <td class="action-btns">
+              <button class="btn btn-sm btn-primary" onclick='openModal("list-mapping", ${JSON.stringify(m).replace(/'/g, "&apos;")})'>✏️</button>
               <button class="btn btn-sm btn-danger" onclick="deleteListMapping(${m.Id})">🗑️</button>
             </td>
           </tr>
-        `).join('');
+        `;
+    }).join('');
     console.log('[List Mappings] Done loadListMappings.');
   } catch (err) {
     console.error('Load list mappings failed:', err);
@@ -758,35 +765,43 @@ async function openModal(type, editData = null) {
       </div>
     `;
   } else if (type === 'list-mapping') {
-    title.textContent = 'Add List Mapping';
+    title.textContent = editData ? 'Edit List Mapping' : 'Add List Mapping';
+    const listIdVal = editData?.ClickUp_List_ID || editData?.List_ID || '';
+    const custIdVal = typeof editData?.Customer_Id === 'object' ? editData?.Customer_Id?.Id : editData?.Customer_Id;
+    const projIdVal = typeof editData?.Project_Id === 'object' ? editData?.Project_Id?.Id : editData?.Project_Id;
+
+    // Rebuild customerOptions and projectOptions with selection
+    const customerOpts = allCustomers.map(c => `<option value="${c.Id}" ${custIdVal == c.Id ? 'selected' : ''}>${esc(c.Title)}</option>`).join('');
+    const projectOpts = allProjects.map(p => `<option value="${p.Id}" ${projIdVal == p.Id ? 'selected' : ''}>${esc(p.Title)}</option>`).join('');
+
     body.innerHTML = `
       <div class="form-group">
         <label>ClickUp List ID</label>
-        <input type="text" name="List_ID" placeholder="e.g., 901815849460" required>
+        <input type="text" name="ClickUp_List_ID" placeholder="e.g., 901815849460" value="${esc(listIdVal)}" required>
         <span class="help">The ID from the ClickUp URL when viewing a List</span>
       </div>
       <div class="form-group">
         <label>Slack Channel ID</label>
-        <input type="text" name="Slack_Channel_ID" placeholder="e.g., C012345678" required>
+        <input type="text" name="Slack_Channel_ID" placeholder="e.g., C012345678" value="${esc(editData?.Slack_Channel_ID || '')}" required>
         <span class="help">The slack channel to create the auto thread in</span>
       </div>
       <div class="form-group">
         <label>Slack Users to Ping (Review)</label>
-        <input type="text" name="Slack_Review_User_IDs" placeholder="e.g., <@U0123> <@U0456>">
+        <input type="text" name="Slack_Review_User_IDs" placeholder="e.g., <@U0123> <@U0456>" value="${esc(editData?.Slack_Review_User_IDs || '')}">
         <span class="help">Raw Slack IDs of the users to tag when status moves to CLIENT_REVIEW</span>
       </div>
       <div class="form-group">
         <label>Customer</label>
         <select name="Customer_Id" required>
           <option value="">-- Select Customer --</option>
-          ${customerOptions}
+          ${customerOpts}
         </select>
       </div>
       <div class="form-group">
         <label>Project</label>
         <select name="Project_Id">
           <option value="">-- None --</option>
-          ${projectOptions}
+          ${projectOpts}
         </select>
       </div>
     `;
@@ -873,8 +888,8 @@ async function handleFormSubmit(e) {
       url = `${API}/api/${endpoint}`;
     } else if (currentModalType === 'list-mapping') {
       endpoint = 'list-mappings';
-      method = 'POST';
-      url = `${API}/api/${endpoint}`;
+      method = currentEditId ? 'PUT' : 'POST';
+      url = currentEditId ? `${API}/api/${endpoint}/${currentEditId}` : `${API}/api/${endpoint}`;
     } else if (currentModalType === 'customer') {
       endpoint = 'customers';
       method = 'POST';

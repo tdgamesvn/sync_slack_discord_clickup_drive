@@ -375,6 +375,15 @@ router.post('/list-mappings', async (req, res) => {
     }
 });
 
+router.put('/list-mappings/:id', async (req, res) => {
+    try {
+        const data = await nocodb.updateListMapping(parseInt(req.params.id, 10), req.body);
+        res.json({ data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.delete('/list-mappings/:id', async (req, res) => {
     try {
         await nocodb.deleteListMapping(parseInt(req.params.id, 10));

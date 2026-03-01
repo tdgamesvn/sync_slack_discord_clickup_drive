@@ -171,8 +171,8 @@ router.post('/', express.json(), async (req, res) => {
                 if (listMapping) {
                     const slackChannelId = listMapping.Slack_Channel_ID;
                     const slackReviewUsers = listMapping.Slack_Review_User_IDs;
-                    const customerId = listMapping.Customer_Id;
-                    const projectId = listMapping.Project_Id;
+                    const customerId = typeof listMapping.Customer_Id === 'object' && listMapping.Customer_Id !== null ? listMapping.Customer_Id.Id : listMapping.Customer_Id;
+                    const projectId = typeof listMapping.Project_Id === 'object' && listMapping.Project_Id !== null ? listMapping.Project_Id.Id : listMapping.Project_Id;
 
                     if (event === 'taskCreated' && slackChannelId) {
                         console.log(`[Slack Automation] Starting new thread for task ${task_id} in channel ${slackChannelId}`);

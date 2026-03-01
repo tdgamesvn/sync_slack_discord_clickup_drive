@@ -81,12 +81,19 @@ async function getListMappings() {
 
 async function findListMapping(listId) {
     const mappings = await getListMappings();
-    return mappings.find(m => m.List_ID === listId);
+    // Use String for robust comparison
+    return mappings.find(m => String(m.ClickUp_List_ID) === String(listId));
 }
 
 async function createListMapping(data) {
     const ids = await getTableIds();
     const res = await api.post(`/tables/${ids.ListMappings}/records`, data);
+    return res.data;
+}
+
+async function updateListMapping(rowId, data) {
+    const ids = await getTableIds();
+    const res = await api.patch(`/tables/${ids.ListMappings}/records`, [{ Id: rowId, ...data }]);
     return res.data;
 }
 
@@ -326,12 +333,9 @@ module.exports = {
     getListMappings,
     findListMapping,
     createListMapping,
+    updateListMapping,
     deleteListMapping,
     getSyncConfigs,
-    findSyncConfigByPlatformId,
-    createSyncConfig,
-    updateSyncConfig,
-    deleteSyncConfig,
     getCustomers,
     createCustomer,
     deleteCustomer,
