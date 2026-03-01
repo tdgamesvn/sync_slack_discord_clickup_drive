@@ -16,7 +16,7 @@ app.use(cors());
 // Parse JSON for all routes EXCEPT /webhook/slack
 // Slack needs raw body for signature verification
 app.use((req, res, next) => {
-    if (req.path === '/webhook/slack') {
+    if (req.path.startsWith('/webhook/slack')) {
         return next(); // Skip JSON parsing for Slack
     }
     express.json({ limit: '50mb' })(req, res, next);

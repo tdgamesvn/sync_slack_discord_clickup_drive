@@ -33,6 +33,11 @@ function verifySlackSignature(req) {
  * Raw body parsing middleware for Slack.
  */
 function rawBodyParser(req, res, next) {
+    if (req.body && Object.keys(req.body).length > 0) {
+        req.rawBody = JSON.stringify(req.body);
+        return next();
+    }
+
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
@@ -50,6 +55,10 @@ function rawBodyParser(req, res, next) {
  * POST /webhook/slack
  */
 router.post('/', rawBodyParser, async (req, res) => {
+    // ---- DEBUG INJECTION ----
+    require('fs').appendFileSync('slack_debug_payloads.log', new Date().toISOString() + ' | ' + JSON.stringify(req.body || {}) + '\n');
+    // -------------------------
+
     try {
         const { type, event, challenge } = req.body;
 

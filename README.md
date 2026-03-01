@@ -78,6 +78,7 @@ NOCODB_BASE_ID=your_base_id
 
 # ClickUp
 CLICKUP_API_TOKEN=pk_xxxxx
+CLICKUP_WORKSPACE_ID=your_workspace_id
 
 # Slack
 SLACK_BOT_TOKEN=xoxb-xxxxx
@@ -190,11 +191,14 @@ npx nport 3000 -s your-subdomain
 **Slack**: Go to [api.slack.com/apps](https://api.slack.com/apps) → Event Subscriptions → Request URL: `https://your-domain/webhook/slack`
 
 **ClickUp**: Create via API:
+
+> **Important**: Ensure you use the correct Workspace ID (`TEAM_ID`) if your account belongs to multiple workspaces. Task creation events are critical for auto-threading to Slack.
+
 ```bash
 curl -X POST "https://api.clickup.com/api/v2/team/{TEAM_ID}/webhook" \
   -H "Authorization: YOUR_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"endpoint":"https://your-domain/webhook/clickup","events":["taskCommentPosted","taskCommentUpdated"]}'
+  -d '{"endpoint":"https://your-domain/webhook/clickup","events":["taskCreated","taskUpdated","taskDeleted","taskCommentPosted","taskCommentUpdated"]}'
 ```
 
 ## 📁 Project Structure
