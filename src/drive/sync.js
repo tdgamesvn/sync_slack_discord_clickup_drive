@@ -30,7 +30,7 @@ async function listFiles(folderId) {
     do {
         const res = await driveService.files.list({
             q: `'${folderId}' in parents and trashed = false`,
-            fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, md5Checksum)',
+            fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, md5Checksum, appProperties)',
             pageSize: 100,
             pageToken,
             supportsAllDrives: true,
@@ -52,6 +52,9 @@ async function copyFile(fileId, destinationFolderId, fileName) {
         requestBody: {
             name: fileName,
             parents: [destinationFolderId],
+            appProperties: {
+                sourceId: fileId
+            }
         },
         supportsAllDrives: true,
     });
@@ -61,12 +64,15 @@ async function copyFile(fileId, destinationFolderId, fileName) {
 /**
  * Create a folder in destination.
  */
-async function createFolder(name, parentFolderId) {
+async function createFolder(name, parentFolderId, sourceId) {
     const res = await driveService.files.create({
         requestBody: {
             name,
             mimeType: 'application/vnd.google-apps.folder',
             parents: [parentFolderId],
+            appProperties: {
+                sourceId: sourceId // Keep track of the original folder ID
+            }
         },
         supportsAllDrives: true,
     });
@@ -74,53 +80,159 @@ async function createFolder(name, parentFolderId) {
 }
 
 /**
- * Sync files from source folder to destination folder.
- * One-way: source → destination.
+ * Sync files from source folder to destination folder using mirror syncing logic.
+ * Enables true mirror sync (deletions propagate) and fast concurrent transfers.
  */
 async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
     const indent = '  '.repeat(depth);
     const sourceFiles = await listFiles(sourceFolderId);
     const destFiles = await listFiles(destFolderId);
 
+    // Map existing destination files by their sourceId (appProperties) or Fallback to Name
     const destMap = new Map();
     for (const f of destFiles) {
-        destMap.set(f.name, f);
+        if (f.appProperties && f.appProperties.sourceId) {
+            destMap.set(`id_${f.appProperties.sourceId}`, f);
+        } else {
+            // Un-tracked file -> mapped by name (legacy fallback)
+            destMap.set(`name_${f.name}`, f);
+        }
     }
 
     let syncedCount = 0;
 
+    // Batch processing helper map
+    const promises = [];
+    const BATCH_SIZE = 5;
+
+    async function processBatch() {
+        while (promises.length > 0) {
+            const batch = promises.splice(0, BATCH_SIZE);
+            await Promise.all(batch);
+        }
+    }
+
+    // --- STEP 1: Sync or Update files from Source to Dest ---
     for (const sourceFile of sourceFiles) {
-        const existing = destMap.get(sourceFile.name);
+        // Find existing match by sourceId, fallback to name match for legacy files
+        let existing = destMap.get(`id_${sourceFile.id}`) || destMap.get(`name_${sourceFile.name}`);
 
         if (sourceFile.mimeType === 'application/vnd.google-apps.folder') {
-            // Recursively sync sub-folders
-            let destSubFolder;
-            if (existing && existing.mimeType === 'application/vnd.google-apps.folder') {
-                destSubFolder = existing;
-            } else {
-                destSubFolder = await createFolder(sourceFile.name, destFolderId);
-                console.log(`${indent}[Drive] 📁 Created folder: ${sourceFile.name}`);
-            }
-            syncedCount += await syncFolder(sourceFile.id, destSubFolder.id, depth + 1);
-        } else {
-            // Sync file if it doesn't exist or is older
-            if (!existing) {
-                await copyFile(sourceFile.id, destFolderId, sourceFile.name);
-                console.log(`${indent}[Drive] 📄 Copied: ${sourceFile.name}`);
-                syncedCount++;
-            } else if (new Date(sourceFile.modifiedTime) > new Date(existing.modifiedTime)) {
-                // Check if contents are already identical
-                if (sourceFile.md5Checksum && existing.md5Checksum && sourceFile.md5Checksum === existing.md5Checksum) {
-                    console.log(`${indent}[Drive] ⏭️ Skipped (identical): ${sourceFile.name}`);
+            promises.push((async () => {
+                let destSubFolder;
+                if (existing && existing.mimeType === 'application/vnd.google-apps.folder') {
+                    destSubFolder = existing;
+                    // Handle Rename scenario (ID matched, but name changed on source)
+                    if (destSubFolder.name !== sourceFile.name) {
+                        try {
+                            await driveService.files.update({
+                                fileId: destSubFolder.id,
+                                requestBody: { name: sourceFile.name },
+                                supportsAllDrives: true,
+                            });
+                            console.log(`${indent}[Drive] 🖋️ Renamed folder: ${existing.name} -> ${sourceFile.name}`);
+                        } catch (e) {
+                            console.log(`${indent}[Drive] ⚠️ Rename failed: ${e.message}`);
+                        }
+                    }
                 } else {
-                    // Delete old, copy new (Drive API doesn't support in-place update across accounts)
-                    await driveService.files.delete({ fileId: existing.id, supportsAllDrives: true });
-                    await copyFile(sourceFile.id, destFolderId, sourceFile.name);
-                    console.log(`${indent}[Drive] 🔄 Updated: ${sourceFile.name}`);
-                    syncedCount++;
+                    destSubFolder = await createFolder(sourceFile.name, destFolderId, sourceFile.id);
+                    console.log(`${indent}[Drive] 📁 Created folder: ${sourceFile.name}`);
                 }
+
+                // Recursively sync sub-folders, wait for it immediately so depth persists cleanly
+                syncedCount += await syncFolder(sourceFile.id, destSubFolder.id, depth + 1);
+            })());
+
+        } else {
+            promises.push((async () => {
+                if (!existing) {
+                    await copyFile(sourceFile.id, destFolderId, sourceFile.name);
+                    console.log(`${indent}[Drive] 📄 Copied: ${sourceFile.name}`);
+                    syncedCount++;
+                } else {
+                    // Handle Rename scenario (ID matched, but name changed on source)
+                    if (existing.name !== sourceFile.name) {
+                        try {
+                            await driveService.files.update({
+                                fileId: existing.id,
+                                requestBody: { name: sourceFile.name },
+                                supportsAllDrives: true,
+                            });
+                            console.log(`${indent}[Drive] 🖋️ Renamed file: ${existing.name} -> ${sourceFile.name}`);
+                        } catch (e) {
+                            console.log(`${indent}[Drive] ⚠️ Rename failed: ${e.message}`);
+                        }
+                    }
+
+                    if (new Date(sourceFile.modifiedTime) > new Date(existing.modifiedTime)) {
+                        if (sourceFile.md5Checksum && existing.md5Checksum && sourceFile.md5Checksum === existing.md5Checksum) {
+                            console.log(`${indent}[Drive] ⏭️ Skipped (identical): ${sourceFile.name}`);
+                        } else {
+                            // Update file content
+                            await driveService.files.delete({ fileId: existing.id, supportsAllDrives: true });
+                            await copyFile(sourceFile.id, destFolderId, sourceFile.name);
+                            console.log(`${indent}[Drive] 🔄 Updated: ${sourceFile.name}`);
+                            syncedCount++;
+                        }
+                    }
+                }
+            })());
+        }
+
+        // Fire batch if reaching size limit to avoid rate limits and memory overflow
+        if (promises.length >= BATCH_SIZE) {
+            await processBatch();
+        }
+    }
+
+    // Fire remaining uploads
+    await processBatch();
+
+    // --- STEP 2: Mirror Logic (Propagate source deletions to destination) ---
+    const sourceIds = new Set(sourceFiles.map(f => f.id));
+    const sourceNames = new Set(sourceFiles.map(f => f.name));
+
+    const deletePromises = [];
+
+    for (const destFile of destFiles) {
+        let shouldTrash = false;
+
+        // Tracked files: Check if source ID is gone
+        if (destFile.appProperties && destFile.appProperties.sourceId) {
+            if (!sourceIds.has(destFile.appProperties.sourceId)) {
+                shouldTrash = true;
+            }
+        } else {
+            // Legacy untracked files: Check if name is gone
+            if (!sourceNames.has(destFile.name)) {
+                shouldTrash = true;
             }
         }
+
+        if (shouldTrash) {
+            deletePromises.push((async () => {
+                try {
+                    await driveService.files.update({
+                        fileId: destFile.id,
+                        requestBody: { trashed: true },
+                        supportsAllDrives: true,
+                    });
+                    console.log(`${indent}[Drive] 🗑️ Trashed removed item: ${destFile.name}`);
+                } catch (e) {
+                    console.log(`${indent}[Drive] ⚠️ Trash failed for ${destFile.name}: ${e.message}`);
+                }
+            })());
+
+            if (deletePromises.length >= BATCH_SIZE) {
+                const batch = deletePromises.splice(0, BATCH_SIZE);
+                await Promise.all(batch);
+            }
+        }
+    }
+
+    if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
     }
 
     return syncedCount;
