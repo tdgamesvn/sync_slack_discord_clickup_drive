@@ -29,6 +29,15 @@ router.post('/', express.json(), async (req, res) => {
 
         // --- 2. Task Lifecycle (PM Tracking + Slack Automation) ---
         if (event === 'taskCreated' || event === 'taskUpdated' || event === 'taskDeleted') {
+            // Respond immediately to ClickUp, process in background
+            res.sendStatus(200);
+
+            // Delay for taskCreated to let ClickUp Automations (e.g. rename) finish first
+            if (event === 'taskCreated') {
+                console.log('[ClickUp] Waiting 3s for Automations to finish...');
+                await new Promise(r => setTimeout(r, 3000));
+            }
+
             try {
                 let taskDeet = null;
                 try {
@@ -53,6 +62,7 @@ router.post('/', express.json(), async (req, res) => {
             } catch (err) {
                 console.error('[ClickUp -> Handlers] Error:', err.message);
             }
+            return; // Already responded
         }
 
         res.sendStatus(200);
