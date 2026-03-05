@@ -202,9 +202,11 @@ async function deleteDriveConfig(rowId) {
 
 // ─── Settings ─────────────────────────────────
 
-async function getSettings() {
+async function getSettings(where) {
     const ids = await getTableIds();
-    const res = await api.get(`/tables/${ids.Settings}/records`, { params: { limit: 100 } });
+    const params = { limit: 100 };
+    if (where) params.where = where;
+    const res = await api.get(`/tables/${ids.Settings}/records`, { params });
     return res.data.list || [];
 }
 

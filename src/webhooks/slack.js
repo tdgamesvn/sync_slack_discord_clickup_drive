@@ -55,10 +55,6 @@ function rawBodyParser(req, res, next) {
  * POST /webhook/slack
  */
 router.post('/', rawBodyParser, async (req, res) => {
-    // ---- DEBUG INJECTION ----
-    require('fs').appendFileSync('slack_debug_payloads.log', new Date().toISOString() + ' | ' + JSON.stringify(req.body || {}) + '\n');
-    // -------------------------
-
     try {
         const { type, event, challenge } = req.body;
 

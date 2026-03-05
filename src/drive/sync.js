@@ -5,6 +5,29 @@ const auth = require('./auth');
 let driveService = null;
 
 /**
+ * Retry wrapper with exponential backoff for Drive API calls.
+ * Handles rate limits (429), server errors (5xx), and network issues.
+ */
+async function withRetry(fn, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            const status = err?.response?.status || err?.code;
+            const isRetryable = status === 429 || status === 503 || status === 500 || status === 'ECONNRESET' || status === 'ETIMEDOUT';
+
+            if (!isRetryable || attempt === maxRetries) {
+                throw err;
+            }
+
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // 1s, 2s, 4s... max 10s
+            console.log(`[Drive] ⏳ Retry ${attempt}/${maxRetries} after ${delay}ms (${status})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
+/**
  * Initialize Google Drive API client using OAuth2 client.
  */
 async function initDriveService() {
@@ -28,14 +51,14 @@ async function listFiles(folderId) {
     let pageToken = null;
 
     do {
-        const res = await driveService.files.list({
+        const res = await withRetry(() => driveService.files.list({
             q: `'${folderId}' in parents and trashed = false`,
             fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, md5Checksum, appProperties)',
             pageSize: 100,
             pageToken,
             supportsAllDrives: true,
             includeItemsFromAllDrives: true,
-        });
+        }));
         files.push(...(res.data.files || []));
         pageToken = res.data.nextPageToken;
     } while (pageToken);
@@ -47,7 +70,7 @@ async function listFiles(folderId) {
  * Copy a file from source to destination folder.
  */
 async function copyFile(fileId, destinationFolderId, fileName) {
-    const res = await driveService.files.copy({
+    const res = await withRetry(() => driveService.files.copy({
         fileId,
         requestBody: {
             name: fileName,
@@ -57,7 +80,7 @@ async function copyFile(fileId, destinationFolderId, fileName) {
             }
         },
         supportsAllDrives: true,
-    });
+    }));
     return res.data;
 }
 
@@ -65,25 +88,36 @@ async function copyFile(fileId, destinationFolderId, fileName) {
  * Create a folder in destination.
  */
 async function createFolder(name, parentFolderId, sourceId) {
-    const res = await driveService.files.create({
+    const res = await withRetry(() => driveService.files.create({
         requestBody: {
             name,
             mimeType: 'application/vnd.google-apps.folder',
             parents: [parentFolderId],
             appProperties: {
-                sourceId: sourceId // Keep track of the original folder ID
+                sourceId: sourceId
             }
         },
         supportsAllDrives: true,
-    });
+    }));
     return res.data;
 }
 
+// --- Safety Constants ---
+const DELETE_THRESHOLD_PERCENT = 50; // Abort if > 50% of dest files would be deleted
+
 /**
- * Sync files from source folder to destination folder using mirror syncing logic.
- * Enables true mirror sync (deletions propagate) and fast concurrent transfers.
+ * Sync files from source folder to destination folder.
+ * @param {string} sourceFolderId - Source folder ID
+ * @param {string} destFolderId - Destination folder ID
+ * @param {object} options - Sync options
+ * @param {boolean} options.protectDest - If true, skip mirror delete (protect destination from deletions)
+ * @param {boolean} options.mirrorDelete - If true, enable mirror delete logic (default: true)
+ * @param {function} options.logDeletion - Callback to log deletions: (fileName, fileId) => void
+ * @param {string} options.configTitle - Config title for logging
+ * @param {number} depth - Recursion depth (internal)
  */
-async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
+async function syncFolder(sourceFolderId, destFolderId, options = {}, depth = 0) {
+    const { protectDest = false, mirrorDelete = true, logDeletion = null, configTitle = '' } = options;
     const indent = '  '.repeat(depth);
     const sourceFiles = await listFiles(sourceFolderId);
     const destFiles = await listFiles(destFolderId);
@@ -135,13 +169,26 @@ async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
                             console.log(`${indent}[Drive] ⚠️ Rename failed: ${e.message}`);
                         }
                     }
+                    // Stamp sourceId on name-matched folders for accurate future tracking
+                    if (!existing.appProperties?.sourceId) {
+                        try {
+                            await driveService.files.update({
+                                fileId: existing.id,
+                                requestBody: { appProperties: { sourceId: sourceFile.id } },
+                                supportsAllDrives: true,
+                            });
+                            console.log(`${indent}[Drive] 🏷️ Stamped sourceId on folder: ${sourceFile.name}`);
+                        } catch (e) {
+                            console.log(`${indent}[Drive] ⚠️ Stamp sourceId failed: ${e.message}`);
+                        }
+                    }
                 } else {
                     destSubFolder = await createFolder(sourceFile.name, destFolderId, sourceFile.id);
                     console.log(`${indent}[Drive] 📁 Created folder: ${sourceFile.name}`);
                 }
 
-                // Recursively sync sub-folders, wait for it immediately so depth persists cleanly
-                syncedCount += await syncFolder(sourceFile.id, destSubFolder.id, depth + 1);
+                // Recursively sync sub-folders, pass options through
+                syncedCount += await syncFolder(sourceFile.id, destSubFolder.id, options, depth + 1);
             })());
 
         } else {
@@ -151,6 +198,20 @@ async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
                     console.log(`${indent}[Drive] 📄 Copied: ${sourceFile.name}`);
                     syncedCount++;
                 } else {
+                    // Stamp sourceId on name-matched files for accurate future tracking
+                    if (!existing.appProperties?.sourceId) {
+                        try {
+                            await driveService.files.update({
+                                fileId: existing.id,
+                                requestBody: { appProperties: { sourceId: sourceFile.id } },
+                                supportsAllDrives: true,
+                            });
+                            console.log(`${indent}[Drive] 🏷️ Stamped sourceId on file: ${sourceFile.name}`);
+                        } catch (e) {
+                            console.log(`${indent}[Drive] ⚠️ Stamp sourceId failed: ${e.message}`);
+                        }
+                    }
+
                     // Handle Rename scenario (ID matched, but name changed on source)
                     if (existing.name !== sourceFile.name) {
                         try {
@@ -189,45 +250,106 @@ async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
     // Fire remaining uploads
     await processBatch();
 
-    // --- STEP 2: Mirror Logic (Propagate source deletions to destination) ---
+    // --- STEP 2: Mirror Delete Logic ---
+    // Skip mirror delete if destination is protected or mirrorDelete is disabled
+    if (protectDest || !mirrorDelete) {
+        console.log(`${indent}[Drive] 🛡️ Skipping mirror delete (destination protected)`);
+        return syncedCount;
+    }
+
+    // Re-read destination files after STEP 1 to pick up newly stamped sourceIds
+    const updatedDestFiles = await listFiles(destFolderId);
     const sourceIds = new Set(sourceFiles.map(f => f.id));
     const sourceNames = new Set(sourceFiles.map(f => f.name));
 
-    const deletePromises = [];
+    // Build a map to detect duplicates (multiple dest files pointing to same source)
+    const trackedSourceIds = new Map();
+    for (const df of updatedDestFiles) {
+        if (df.appProperties?.sourceId) {
+            if (!trackedSourceIds.has(df.appProperties.sourceId)) {
+                trackedSourceIds.set(df.appProperties.sourceId, df);
+            }
+        }
+    }
 
-    for (const destFile of destFiles) {
+    // --- Collect items to delete ---
+    const itemsToDelete = [];
+
+    for (const destFile of updatedDestFiles) {
         let shouldTrash = false;
+        let reason = '';
 
-        // Tracked files: Check if source ID is gone
-        if (destFile.appProperties && destFile.appProperties.sourceId) {
-            if (!sourceIds.has(destFile.appProperties.sourceId)) {
+        if (destFile.appProperties?.sourceId) {
+            // This file was synced from source — check if source still exists
+            const sid = destFile.appProperties.sourceId;
+            if (!sourceIds.has(sid)) {
                 shouldTrash = true;
+                reason = 'source deleted';
+            } else if (trackedSourceIds.get(sid)?.id !== destFile.id) {
+                shouldTrash = true;
+                reason = 'duplicate (tracked)';
             }
         } else {
-            // Legacy untracked files: Check if name is gone
-            if (!sourceNames.has(destFile.name)) {
-                shouldTrash = true;
+            // NO sourceId = "native" file added directly to this folder
+            // Only trash if it's a duplicate of a tracked file (cleanup leftover)
+            const matchingSource = sourceFiles.find(sf => sf.name === destFile.name);
+            if (matchingSource && trackedSourceIds.has(matchingSource.id)) {
+                const trackedCopy = trackedSourceIds.get(matchingSource.id);
+                if (trackedCopy.id !== destFile.id) {
+                    shouldTrash = true;
+                    reason = 'duplicate (untracked)';
+                }
             }
+            // Otherwise: keep it! It's a native file, not from sync
         }
 
         if (shouldTrash) {
-            deletePromises.push((async () => {
-                try {
-                    await driveService.files.update({
-                        fileId: destFile.id,
-                        requestBody: { trashed: true },
-                        supportsAllDrives: true,
-                    });
-                    console.log(`${indent}[Drive] 🗑️ Trashed removed item: ${destFile.name}`);
-                } catch (e) {
-                    console.log(`${indent}[Drive] ⚠️ Trash failed for ${destFile.name}: ${e.message}`);
-                }
-            })());
+            itemsToDelete.push({ file: destFile, reason });
+        }
+    }
 
-            if (deletePromises.length >= BATCH_SIZE) {
-                const batch = deletePromises.splice(0, BATCH_SIZE);
-                await Promise.all(batch);
+    // --- DELETE THRESHOLD CHECK ---
+    if (updatedDestFiles.length > 0 && itemsToDelete.length > 0) {
+        const deletePercent = (itemsToDelete.length / updatedDestFiles.length) * 100;
+        if (deletePercent > DELETE_THRESHOLD_PERCENT) {
+            const msg = `🚨 ABORT: Would delete ${itemsToDelete.length}/${updatedDestFiles.length} items (${deletePercent.toFixed(0)}%) — exceeds ${DELETE_THRESHOLD_PERCENT}% safety threshold!`;
+            console.error(`${indent}[Drive] ${msg}`);
+            console.error(`${indent}[Drive] Items that would be deleted:`, itemsToDelete.map(i => `${i.file.name} (${i.reason})`).join(', '));
+
+            // Log alert to NocoDB
+            if (logDeletion) {
+                await logDeletion(`🚨 SYNC ABORTED: Would delete ${itemsToDelete.length}/${updatedDestFiles.length} files (${deletePercent.toFixed(0)}%). Manual review required.`, null, 'threshold_alert');
             }
+
+            return syncedCount; // Abort without deleting
+        }
+    }
+
+    // --- Execute deletions ---
+    const deletePromises = [];
+
+    for (const { file: destFile, reason } of itemsToDelete) {
+        deletePromises.push((async () => {
+            try {
+                await driveService.files.update({
+                    fileId: destFile.id,
+                    requestBody: { trashed: true },
+                    supportsAllDrives: true,
+                });
+                console.log(`${indent}[Drive] 🗑️ Trashed: ${destFile.name} (${reason})`);
+
+                // Audit log
+                if (logDeletion) {
+                    await logDeletion(destFile.name, destFile.id, reason);
+                }
+            } catch (e) {
+                console.log(`${indent}[Drive] ⚠️ Trash failed for ${destFile.name}: ${e.message}`);
+            }
+        })());
+
+        if (deletePromises.length >= BATCH_SIZE) {
+            const batch = deletePromises.splice(0, BATCH_SIZE);
+            await Promise.all(batch);
         }
     }
 
@@ -240,6 +362,8 @@ async function syncFolder(sourceFolderId, destFolderId, depth = 0) {
 
 /**
  * Run sync for all active DriveConfigs.
+ * Implements safety: Client folder is NEVER subject to mirror deletions.
+ * Bidirectional: copy both ways, only mirror-delete from Client→Studio direction.
  */
 async function runDriveSync() {
     try {
@@ -256,22 +380,73 @@ async function runDriveSync() {
 
         for (const cfg of configs) {
             try {
-                const direction = cfg.Sync_Direction || 'studio\u2192client';
+                const direction = cfg.Sync_Direction || 'studio→client';
                 console.log(`[Drive] Syncing: ${cfg.Title} (${direction})`);
 
                 let synced = 0;
                 let logMessage = '';
 
-                if (direction === 'studio\u2192client' || direction === 'bidirectional') {
-                    const count = await syncFolder(cfg.Studio_Folder_ID, cfg.Client_Folder_ID);
+                // Helper: audit log callback for deletions
+                const logDeletion = async (fileName, fileId, reason) => {
+                    try {
+                        await nocodb.logMessage({
+                            syncConfigTitle: cfg.Title,
+                            source: 'drive',
+                            sourceMessageId: `del_${fileId || Date.now()}`,
+                            author: 'System',
+                            content: reason === 'threshold_alert'
+                                ? `${fileName}` // fileName contains the full alert message
+                                : `🗑️ Deleted: ${fileName} (${reason})`,
+                            syncedTo: direction,
+                            status: reason === 'threshold_alert' ? 'warning' : 'success',
+                            projectId: cfg.Project_Id
+                        });
+                    } catch (e) {
+                        console.log(`[Drive] ⚠️ Audit log failed: ${e.message}`);
+                    }
+                };
+
+                if (direction === 'studio→client') {
+                    // Studio → Client: Copy files, but PROTECT Client (no mirror delete on Client)
+                    const count = await syncFolder(cfg.Studio_Folder_ID, cfg.Client_Folder_ID, {
+                        protectDest: true, // 🛡️ Client is always protected
+                        logDeletion,
+                        configTitle: cfg.Title,
+                    });
                     synced += count;
                     if (count > 0) logMessage += `Copied ${count} files to Client Folder. `;
-                }
 
-                if (direction === 'client\u2192studio' || direction === 'bidirectional') {
-                    const count = await syncFolder(cfg.Client_Folder_ID, cfg.Studio_Folder_ID);
+                } else if (direction === 'client→studio') {
+                    // Client → Studio: Copy files AND mirror delete on Studio
+                    const count = await syncFolder(cfg.Client_Folder_ID, cfg.Studio_Folder_ID, {
+                        protectDest: false, // Studio can be mirror-deleted based on Client
+                        mirrorDelete: true,
+                        logDeletion,
+                        configTitle: cfg.Title,
+                    });
                     synced += count;
                     if (count > 0) logMessage += `Copied ${count} files to Studio Folder. `;
+
+                } else if (direction === 'bidirectional') {
+                    // BIDIRECTIONAL SAFE SYNC:
+                    // 1. Copy new files: Studio → Client (no delete on Client)
+                    const count1 = await syncFolder(cfg.Studio_Folder_ID, cfg.Client_Folder_ID, {
+                        protectDest: true, // 🛡️ Never delete Client files
+                        logDeletion,
+                        configTitle: cfg.Title,
+                    });
+                    synced += count1;
+                    if (count1 > 0) logMessage += `Copied ${count1} files to Client Folder. `;
+
+                    // 2. Copy new files: Client → Studio + mirror delete on Studio
+                    const count2 = await syncFolder(cfg.Client_Folder_ID, cfg.Studio_Folder_ID, {
+                        protectDest: false, // Studio mirrors Client (Client is the master)
+                        mirrorDelete: true,
+                        logDeletion,
+                        configTitle: cfg.Title,
+                    });
+                    synced += count2;
+                    if (count2 > 0) logMessage += `Copied ${count2} files to Studio Folder. `;
                 }
 
                 console.log(`[Drive] ✅ ${cfg.Title}: ${synced} files synced`);
@@ -301,7 +476,7 @@ async function runDriveSync() {
                     sourceMessageId: `sync_err_${Date.now()}`,
                     author: 'System',
                     content: `❌ Sync failed: ${err.message}`,
-                    syncedTo: cfg.Sync_Direction || 'studio\u2192client',
+                    syncedTo: cfg.Sync_Direction || 'studio→client',
                     status: 'error',
                     projectId: cfg.Project_Id
                 });

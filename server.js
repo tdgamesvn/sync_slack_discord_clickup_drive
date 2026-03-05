@@ -11,7 +11,13 @@ const driveSync = require('./src/drive/sync');
 // ─── Express App ──────────────────────────────
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: [
+        process.env.APP_URL || 'http://localhost:3000',
+        'http://localhost:3000',
+    ],
+    credentials: true,
+}));
 
 // Parse JSON for all routes EXCEPT /webhook/slack
 // Slack needs raw body for signature verification
@@ -42,6 +48,9 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         services: {
             discord: config.DISCORD_BOT_USER_ID ? 'connected' : 'disconnected',
+            slack: config.SLACK_BOT_USER_ID ? 'connected' : 'disconnected',
+            nocodb: config.NOCODB_URL ? 'configured' : 'missing',
+            drive: 'active',
         },
     });
 });
@@ -87,22 +96,43 @@ async function start() {
 
     // 4. Initialize Drive sync
     try {
-        driveSync.initDriveService();
+        await driveSync.initDriveService();
         console.log('✅ Google Drive service initialized');
     } catch (err) {
         console.warn('⚠️  Drive init failed:', err.message);
     }
 
-    // 5. Schedule Drive sync cron (every 5 minutes)
-    cron.schedule('*/5 * * * *', () => {
-        console.log('[Cron] Running Drive sync...');
-        driveSync.runDriveSync();
+    // 5. Schedule Drive sync cron (every 5 minutes) with lock to prevent overlap
+    let isDriveSyncing = false;
+    cron.schedule('*/5 * * * *', async () => {
+        if (isDriveSyncing) {
+            console.log('[Cron] Drive sync still running, skipping...');
+            return;
+        }
+        isDriveSyncing = true;
+        try {
+            console.log('[Cron] Running Drive sync...');
+            await driveSync.runDriveSync();
+        } catch (err) {
+            console.error('[Cron] Drive sync error:', err.message);
+        } finally {
+            isDriveSyncing = false;
+        }
     });
 
     // 5.1 Schedule Review Reminders cron (every 30 minutes)
     const { checkReviewReminders } = require('./src/jobs/reminders');
-    cron.schedule('*/30 * * * *', () => {
-        checkReviewReminders();
+    let isCheckingReminders = false;
+    cron.schedule('*/30 * * * *', async () => {
+        if (isCheckingReminders) return;
+        isCheckingReminders = true;
+        try {
+            await checkReviewReminders();
+        } catch (err) {
+            console.error('[Cron] Reminder check error:', err.message);
+        } finally {
+            isCheckingReminders = false;
+        }
     });
 
     // 6. Start HTTP server

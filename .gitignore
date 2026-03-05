@@ -2,3 +2,10 @@ node_modules/
 .env
 GOOGLE_SERVICE_ACCOUNT_KEY.json
 *.log
+.data_reminders.json
+slack_debug_payloads.log
+
+# Debug/output files
+*.txt
+!README.md
+tmp_*.json

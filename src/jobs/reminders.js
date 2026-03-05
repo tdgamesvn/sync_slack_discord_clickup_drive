@@ -1,28 +1,30 @@
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
 const config = require('../config');
 const { getListMappings, findSyncConfigByPlatformId } = require('../nocodb');
 const { postMessage } = require('../platforms/slack-api');
+const nocodb = require('../nocodb');
+const axios = require('axios');
 
-const REMINDERS_FILE = path.join(__dirname, '../../.data_reminders.json');
-
-function loadReminders() {
+/**
+ * Get/set reminder timestamps via NocoDB Settings table.
+ * Title format: "reminder_{taskId}" → Value = ISO timestamp of last reminder.
+ */
+async function getLastReminded(taskId) {
     try {
-        if (fs.existsSync(REMINDERS_FILE)) {
-            return JSON.parse(fs.readFileSync(REMINDERS_FILE, 'utf8'));
+        const settings = await nocodb.getSettings(`(Title,eq,reminder_${taskId})`);
+        if (settings && settings.length > 0) {
+            return new Date(settings[0].Value).getTime();
         }
-    } catch (err) {
-        console.error('[Reminders] Error loading reminders data:', err.message);
+    } catch {
+        // ignore
     }
-    return {};
+    return 0;
 }
 
-function saveReminders(data) {
+async function setLastReminded(taskId) {
     try {
-        fs.writeFileSync(REMINDERS_FILE, JSON.stringify(data, null, 2));
+        await nocodb.upsertSetting(`reminder_${taskId}`, new Date().toISOString());
     } catch (err) {
-        console.error('[Reminders] Error saving reminders data:', err.message);
+        console.error(`[Reminders] Failed to save reminder timestamp for ${taskId}:`, err.message);
     }
 }
 
@@ -30,10 +32,8 @@ async function checkReviewReminders() {
     console.log('[Cron] Checking for 24h CLIENT_REVIEW reminders...');
     try {
         const mappings = await getListMappings();
-        const reminders = loadReminders();
         const now = Date.now();
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-        let didRemind = false;
 
         for (const mapping of mappings) {
             const listId = mapping.ClickUp_List_ID;
@@ -55,7 +55,7 @@ async function checkReviewReminders() {
 
                         if (timeSinceUpdate > TWENTY_FOUR_HOURS) {
                             // Check if we already reminded them in the last 24h
-                            const lastReminded = reminders[task.id] || 0;
+                            const lastReminded = await getLastReminded(task.id);
                             if (now - lastReminded > TWENTY_FOUR_HOURS) {
 
                                 // 1. Find the slack channel and thread
@@ -74,9 +74,8 @@ async function checkReviewReminders() {
                                             `${finalTagString}`
                                         );
 
-                                        // Mark as reminded
-                                        reminders[task.id] = now;
-                                        didRemind = true;
+                                        // Mark as reminded (persisted to NocoDB)
+                                        await setLastReminded(task.id);
                                     }
                                 }
                             }
@@ -86,10 +85,6 @@ async function checkReviewReminders() {
             } catch (listErr) {
                 console.error(`[Reminders] Failed to fetch tasks for list ${listId}:`, listErr.message);
             }
-        }
-
-        if (didRemind) {
-            saveReminders(reminders);
         }
 
     } catch (err) {

@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const nocodb = require('./nocodb');
 const config = require('./config');
 const { authMiddleware, JWT_SECRET } = require('./middleware/auth');
@@ -19,7 +20,20 @@ router.post('/login', async (req, res) => {
 
         const account = await nocodb.getAccountByUsername(username);
 
-        if (!account || account.Password !== password) {
+        if (!account) {
+            return res.status(401).json({ error: 'Invalid origin or password' });
+        }
+
+        // Support both bcrypt hashed and legacy plaintext passwords
+        let passwordValid = false;
+        if (account.Password.startsWith('$2a$') || account.Password.startsWith('$2b$')) {
+            passwordValid = await bcrypt.compare(password, account.Password);
+        } else {
+            // Legacy plaintext fallback — will be removed after migration
+            passwordValid = account.Password === password;
+        }
+
+        if (!passwordValid) {
             return res.status(401).json({ error: 'Invalid origin or password' });
         }
 

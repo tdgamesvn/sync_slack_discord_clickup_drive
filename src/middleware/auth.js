@@ -1,8 +1,11 @@
 const jwt = require('jsonwebtoken');
 
-// Secret key for JWT (in production should be in .env)
-// For simplicity we use a fallback here if not provided in .env
-const JWT_SECRET = process.env.JWT_SECRET || 'chatsync-secret-key-123!@#';
+// Secret key for JWT — MUST be set in .env
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('❌ FATAL: JWT_SECRET is not set in .env — server cannot start securely.');
+    process.exit(1);
+}
 
 function authMiddleware(req, res, next) {
     // Exclude login route
