@@ -475,7 +475,7 @@ async function loadListMappings() {
     }
 
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No list mappings configured yet. Click "+ Add Mapping" to set auto-sync for a ClickUp List.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No list mappings configured yet. Click "+ Add Mapping" to set auto-sync for a ClickUp List.</td></tr>';
       return;
     }
 
@@ -496,6 +496,8 @@ async function loadListMappings() {
             <td><code>${esc(listId || '—')}</code></td>
             <td><code>${esc(m.Slack_Channel_ID || '—')}</code></td>
             <td>${esc(m.Slack_Review_User_IDs || '—')}</td>
+            <td><code>${esc(m.Discord_Channel_ID || '—')}</code></td>
+            <td>${esc(m.Discord_Review_User_IDs || '—')}</td>
             <td>${esc(custVal || '—')}</td>
             <td>${esc(projVal || '—')}</td>
             <td class="action-btns">
@@ -509,7 +511,7 @@ async function loadListMappings() {
   } catch (err) {
     console.error('Load list mappings failed:', err);
     const tbody = document.getElementById('list-mappings-body');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-state badge-error">Error loading mappings: ${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty-state badge-error">Error loading mappings: ${err.message}</td></tr>`;
   }
 }
 
@@ -782,13 +784,23 @@ async function openModal(type, editData = null) {
       </div>
       <div class="form-group">
         <label>Slack Channel ID</label>
-        <input type="text" name="Slack_Channel_ID" placeholder="e.g., C012345678" value="${esc(editData?.Slack_Channel_ID || '')}" required>
-        <span class="help">The slack channel to create the auto thread in</span>
+        <input type="text" name="Slack_Channel_ID" placeholder="e.g., C012345678" value="${esc(editData?.Slack_Channel_ID || '')}">
+        <span class="help">The Slack channel to create the auto thread in</span>
       </div>
       <div class="form-group">
         <label>Slack Users to Ping (Review)</label>
         <input type="text" name="Slack_Review_User_IDs" placeholder="e.g., <@U0123> <@U0456>" value="${esc(editData?.Slack_Review_User_IDs || '')}">
-        <span class="help">Raw Slack IDs of the users to tag when status moves to CLIENT_REVIEW</span>
+        <span class="help">Slack IDs of users to tag when status → CLIENT_REVIEW</span>
+      </div>
+      <div class="form-group">
+        <label>Discord Channel ID</label>
+        <input type="text" name="Discord_Channel_ID" placeholder="e.g., 1234567890123456789" value="${esc(editData?.Discord_Channel_ID || '')}">
+        <span class="help">Enable Developer Mode → Right-click channel → Copy Channel ID</span>
+      </div>
+      <div class="form-group">
+        <label>Discord Users to Ping (Review)</label>
+        <input type="text" name="Discord_Review_User_IDs" placeholder="e.g., <@123456789> <@987654321>" value="${esc(editData?.Discord_Review_User_IDs || '')}">
+        <span class="help">Discord IDs of users to ping when status → CLIENT_REVIEW</span>
       </div>
       <div class="form-group">
         <label>Customer</label>

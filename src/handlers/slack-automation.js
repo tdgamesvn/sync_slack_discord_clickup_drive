@@ -8,6 +8,25 @@ const { createSyncConfig, findSyncConfigByPlatformId, deleteSyncConfig } = requi
  * - taskDeleted: Delete Slack thread + purge sync config
  */
 async function handleSlackAutomation(event, task_id, history_items, listMapping, taskDeet) {
+    // --- taskDeleted: doesn't need listMapping, just sync config ---
+    if (event === 'taskDeleted') {
+        console.log(`[Slack Automation] Task ${task_id} deleted. Removing Slack thread...`);
+        const configs = await findSyncConfigByPlatformId('clickup', task_id);
+        const slackConfig = configs.find(c => c.Slack_Thread_TS && c.Status && c.Status.toLowerCase() === 'active');
+
+        if (slackConfig) {
+            try {
+                await deleteMessage(slackConfig.Slack_Channel_ID, slackConfig.Slack_Thread_TS);
+                console.log('[Slack Automation] Slack thread deleted.');
+            } catch (e) {
+                console.error('[Slack Automation] Failed to delete Slack thread:', e.message);
+            }
+            await deleteSyncConfig(slackConfig.Id);
+            console.log('[Slack Automation] Sync config removed.');
+        }
+        return;
+    }
+
     if (!listMapping) return;
 
     const slackChannelId = listMapping.Slack_Channel_ID;
@@ -71,24 +90,6 @@ async function handleSlackAutomation(event, task_id, history_items, listMapping,
                 slackConfig.Slack_Thread_TS,
                 `🔔 <${taskUrl}|${taskName}>\n${slackReviewUsers}`
             );
-        }
-    }
-
-    // --- taskDeleted: Remove Slack thread + sync config ---
-    if (event === 'taskDeleted') {
-        console.log(`[Slack Automation] Task ${task_id} deleted. Removing Slack thread...`);
-        const configs = await findSyncConfigByPlatformId('clickup', task_id);
-        const slackConfig = configs.find(c => c.Slack_Thread_TS && c.Status && c.Status.toLowerCase() === 'active');
-
-        if (slackConfig) {
-            try {
-                await deleteMessage(slackConfig.Slack_Channel_ID, slackConfig.Slack_Thread_TS);
-                console.log('[Slack Automation] Slack thread deleted.');
-            } catch (e) {
-                console.error('[Slack Automation] Failed to delete Slack thread:', e.message);
-            }
-            await deleteSyncConfig(slackConfig.Id);
-            console.log('[Slack Automation] Sync config removed.');
         }
     }
 }

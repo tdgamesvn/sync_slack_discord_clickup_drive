@@ -3,6 +3,7 @@ const { getTask } = require('../platforms/clickup-api');
 const { handleCommentSync } = require('../handlers/comment-sync');
 const { handlePMTracking } = require('../handlers/pm-tracking');
 const { handleSlackAutomation } = require('../handlers/slack-automation');
+const { handleDiscordAutomation } = require('../handlers/discord-automation');
 
 const router = express.Router();
 
@@ -58,6 +59,9 @@ router.post('/', express.json(), async (req, res) => {
 
                 // 2b. Slack Auto-Threading
                 await handleSlackAutomation(event, task_id, history_items, listMapping, taskDeet);
+
+                // 2c. Discord Auto-Threading
+                await handleDiscordAutomation(event, task_id, history_items, listMapping, taskDeet);
 
             } catch (err) {
                 console.error('[ClickUp -> Handlers] Error:', err.message);

@@ -428,7 +428,7 @@
     <section class="page" id="page-list-mappings">
       <div class="page-header">
         <h1>List Mappings</h1>
-        <p class="subtitle">Auto-Sync Rules: Map ClickUp Lists to Slack Channels</p>
+        <p class="subtitle">Auto-Sync Rules: Map ClickUp Lists to Slack & Discord Channels</p>
         <button class="btn btn-primary" onclick="openModal('list-mapping')">+ Add Mapping</button>
       </div>
       <div class="card">
@@ -438,7 +438,9 @@
               <tr>
                 <th>ClickUp List ID</th>
                 <th>Slack Channel ID</th>
-                <th>Users to Tag (Review)</th>
+                <th>Slack Users to Tag</th>
+                <th>Discord Channel ID</th>
+                <th>Discord Users to Tag</th>
                 <th>Customer</th>
                 <th>Project</th>
                 <th>Actions</th>
@@ -446,7 +448,7 @@
             </thead>
             <tbody id="list-mappings-body">
               <tr>
-                <td colspan="6" class="empty-state">Loading...</td>
+                <td colspan="8" class="empty-state">Loading...</td>
               </tr>
             </tbody>
           </table>
