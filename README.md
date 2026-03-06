@@ -7,8 +7,13 @@ Real-time, bidirectional chat synchronization between **ClickUp**, **Slack**, an
 - **Chat Sync**: Messages (text + files) sync across ClickUp comments, Slack threads, and Discord threads
 - **Bidirectional**: Send from any platform → other two receive instantly
 - **File Attachments**: Images and files are downloaded and re-uploaded across platforms
+- **List Mappings**: Map ClickUp Lists → Slack & Discord channels for auto-threading, status updates, and reviewer pings
+- **Auto-Threading**: New ClickUp tasks auto-create threaded messages on Slack and Discord
+- **Reviewer Ping**: Automatically tag reviewers on Slack/Discord when task status → `CLIENT_REVIEW`
+- **Task Cleanup**: Deleting a ClickUp task removes the Slack thread and archives/locks the Discord thread
 - **Custom Name Mappings**: Override display names (e.g., "NA" → "Art Director")
 - **Drive Sync**: One-way folder sync from studio → client Google Drive folders
+- **PM Finance Tracking**: Track task costs and payment status synced from ClickUp
 - **Dashboard UI & Security**: Web-based admin panel protected by JWT authentication and NocoDB `Account` table
 - **Action Logs**: Track system sync logs and identify the user responsible (`Action By` feature)
 - **Loop Prevention**: Smart detection prevents infinite message loops
@@ -163,6 +168,17 @@ Create these tables in your NocoDB base:
 | Project_Id | Link (Projects) |
 | Created_At | DateTime |
 
+**ListMappings** (Auto-Threading Rules)
+| Column | Type |
+|--------|------|
+| List_ID | SingleLineText |
+| Slack_Channel_ID | SingleLineText |
+| Slack_Review_User_IDs | SingleLineText |
+| Discord_Channel_ID | SingleLineText |
+| Discord_Review_User_IDs | SingleLineText |
+| Customer_Id | Link (Customers) |
+| Project_Id | Link (Projects) |
+
 **NameMappings**
 | Column | Type |
 |--------|------|
@@ -192,7 +208,7 @@ npx nport 3000 -s your-subdomain
 
 **ClickUp**: Create via API:
 
-> **Important**: Ensure you use the correct Workspace ID (`TEAM_ID`) if your account belongs to multiple workspaces. Task creation events are critical for auto-threading to Slack.
+> **Important**: Ensure you use the correct Workspace ID (`TEAM_ID`) if your account belongs to multiple workspaces. Task lifecycle events (`taskCreated`, `taskUpdated`, `taskDeleted`) are required for auto-threading on both Slack and Discord.
 
 ```bash
 curl -X POST "https://api.clickup.com/api/v2/team/{TEAM_ID}/webhook" \
@@ -216,12 +232,17 @@ curl -X POST "https://api.clickup.com/api/v2/team/{TEAM_ID}/webhook" \
 │   ├── api.js                # REST API routes
 │   ├── bots/
 │   │   └── discord.js        # Discord bot (WebSocket)
+│   ├── handlers/
+│   │   ├── comment-sync.js   # ClickUp comment → Slack/Discord sync
+│   │   ├── pm-tracking.js    # PM finance tracking from ClickUp
+│   │   ├── slack-automation.js   # Auto-thread + reviewer ping on Slack
+│   │   └── discord-automation.js # Auto-thread + reviewer ping + archive on Discord
 │   ├── platforms/
 │   │   ├── clickup-api.js    # ClickUp API client
 │   │   ├── slack-api.js      # Slack API client
-│   │   └── discord-api.js    # Discord API client
+│   │   └── discord-api.js    # Discord API client (sendMessage, createThread, archiveThread)
 │   ├── webhooks/
-│   │   ├── clickup.js        # ClickUp webhook handler
+│   │   ├── clickup.js        # ClickUp webhook router → handlers
 │   │   └── slack.js          # Slack Events handler
 │   ├── drive/
 │   │   ├── auth.js           # OAuth 2.0 Google Auth handler
