@@ -262,6 +262,53 @@ async function deleteNameMapping(rowId) {
     return res.data;
 }
 
+// ─── PM_Tracking_Configs ─────────────────────────
+async function getPMTrackingConfigs() {
+    const ids = await getTableIds();
+    if (!ids.PM_Tracking_Configs) return [];
+    const res = await api.get(`/tables/${ids.PM_Tracking_Configs}/records`, { params: { limit: 100 } });
+    return res.data.list || [];
+}
+
+async function findPMTrackingConfig(taskDeet) {
+    const configs = await getPMTrackingConfigs();
+    const activeConfigs = configs.filter(c => c.Enabled !== 'Paused');
+
+    const listId = String(taskDeet?.list?.id || '');
+    const folderId = String(taskDeet?.folder?.id || '');
+    const spaceId = String(taskDeet?.space?.id || '');
+
+    // Priority: list (most specific) → folder → space
+    const listMatch = activeConfigs.find(c => c.ClickUp_Type === 'list' && String(c.ClickUp_ID) === listId);
+    if (listMatch) return listMatch;
+
+    const folderMatch = activeConfigs.find(c => c.ClickUp_Type === 'folder' && String(c.ClickUp_ID) === folderId);
+    if (folderMatch) return folderMatch;
+
+    const spaceMatch = activeConfigs.find(c => c.ClickUp_Type === 'space' && String(c.ClickUp_ID) === spaceId);
+    if (spaceMatch) return spaceMatch;
+
+    return null;
+}
+
+async function createPMTrackingConfig(data) {
+    const ids = await getTableIds();
+    const res = await api.post(`/tables/${ids.PM_Tracking_Configs}/records`, data);
+    return res.data;
+}
+
+async function updatePMTrackingConfig(rowId, data) {
+    const ids = await getTableIds();
+    const res = await api.patch(`/tables/${ids.PM_Tracking_Configs}/records`, [{ Id: rowId, ...data }]);
+    return res.data;
+}
+
+async function deletePMTrackingConfig(rowId) {
+    const ids = await getTableIds();
+    const res = await api.delete(`/tables/${ids.PM_Tracking_Configs}/records`, { data: [{ Id: rowId }] });
+    return res.data;
+}
+
 // ─── PM_Tasks_Tracking (Finance Tracking) ───────
 async function upsertPMTaskTracking(taskData) {
     const ids = await getTableIds();
@@ -344,5 +391,10 @@ module.exports = {
     getProjects,
     createProject,
     deleteProject,
-    upsertPMTaskTracking
+    upsertPMTaskTracking,
+    getPMTrackingConfigs,
+    findPMTrackingConfig,
+    createPMTrackingConfig,
+    updatePMTrackingConfig,
+    deletePMTrackingConfig
 };

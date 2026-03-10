@@ -251,6 +251,44 @@ router.post('/settings', async (req, res) => {
     }
 });
 
+// ─── PM_Tracking_Configs ─────────────────────────
+
+router.get('/pm-tracking-configs', async (req, res) => {
+    try {
+        const data = await nocodb.getPMTrackingConfigs();
+        res.json({ data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/pm-tracking-configs', async (req, res) => {
+    try {
+        const result = await nocodb.createPMTrackingConfig(req.body);
+        res.json({ data: result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/pm-tracking-configs/:id', async (req, res) => {
+    try {
+        const result = await nocodb.updatePMTrackingConfig(parseInt(req.params.id), req.body);
+        res.json({ data: result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/pm-tracking-configs/:id', async (req, res) => {
+    try {
+        const result = await nocodb.deletePMTrackingConfig(parseInt(req.params.id));
+        res.json({ data: result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ─── PM_Tasks_Tracking (Finance Tracking) ───────
 
 router.get('/pm-tracking', async (req, res) => {

@@ -86,7 +86,7 @@ function switchPage(page) {
   if (page === 'dashboard') loadDashboard();
   if (page === 'chat-sync') { loadChatFilters(); loadSyncConfigs(); }
   if (page === 'drive-sync') { loadDriveFilters(); loadDriveConfigs(); }
-  if (page === 'pm-tracking') { loadPMTracking(); }
+  if (page === 'pm-tracking') { loadPMTrackingConfigs(); loadPMTracking(); }
   if (page === 'customers') loadCustomers();
   if (page === 'projects') loadProjects();
   if (page === 'logs') { loadLogFilters(); loadLogs(); }
@@ -359,6 +359,67 @@ async function updatePaymentStatus(id, newStatus) {
   } catch (err) {
     alert('Failed to update payment status: ' + err.message);
     loadPMTracking(); // reload to revert to original state
+  }
+}
+
+// ─── PM Tracking Configs ──────────────────────
+async function loadPMTrackingConfigs() {
+  try {
+    const res = await apiFetch(`${API}/api/pm-tracking-configs`);
+    const { data } = await res.json();
+    const tbody = document.getElementById('pm-configs-body');
+    if (!tbody) return;
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No PM configs yet. Click "+ Add PM Config" to start tracking.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((c) => {
+      const isPaused = c.Enabled === 'Paused';
+      const toggleIcon = isPaused ? '▶️' : '⏸️';
+      const typeIcon = c.ClickUp_Type === 'space' ? '🌐' : c.ClickUp_Type === 'folder' ? '📁' : '📋';
+      return `
+        <tr style="${isPaused ? 'opacity: 0.55;' : ''}">
+          <td><strong>${esc(c.Title || '—')}</strong></td>
+          <td>${typeIcon} ${esc(c.ClickUp_Type || '—')}</td>
+          <td><code>${esc(c.ClickUp_ID || '—')}</code></td>
+          <td><strong>${esc(c.Job_Type || '—')}</strong></td>
+          <td>${statusBadge(isPaused ? 'paused' : 'active')}</td>
+          <td class="action-btns">
+            <button class="btn btn-sm ${isPaused ? 'btn-success' : 'btn-warning'}" onclick="togglePMConfigStatus(${c.Id}, '${c.Enabled || 'Active'}')" title="${isPaused ? 'Activate' : 'Pause'}">${toggleIcon}</button>
+            <button class="btn btn-sm btn-primary" onclick='openModal("pm-config", ${JSON.stringify(c).replace(/'/g, "&apos;")})'>✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePMConfig(${c.Id})">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Load PM tracking configs failed:', err);
+  }
+}
+
+async function togglePMConfigStatus(id, currentStatus) {
+  const newStatus = currentStatus === 'Paused' ? 'Active' : 'Paused';
+  try {
+    await apiFetch(`${API}/api/pm-tracking-configs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Enabled: newStatus }),
+    });
+    loadPMTrackingConfigs();
+  } catch (err) {
+    alert('Toggle failed: ' + err.message);
+  }
+}
+
+async function deletePMConfig(id) {
+  if (!confirm('Delete this PM config? Tracking will stop for these tasks.')) return;
+  try {
+    await apiFetch(`${API}/api/pm-tracking-configs/${id}`, { method: 'DELETE' });
+    loadPMTrackingConfigs();
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
   }
 }
 
@@ -852,6 +913,42 @@ async function openModal(type, editData = null) {
         </select>
       </div>
     `;
+  } else if (type === 'pm-config') {
+    title.textContent = editData ? 'Edit PM Config' : 'Add PM Config';
+    body.innerHTML = `
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" name="Title" placeholder="e.g., KABAM Art Tracking" value="${esc(editData?.Title || '')}" required>
+      </div>
+      <div class="form-group">
+        <label>ClickUp Type</label>
+        <select name="ClickUp_Type" required>
+          <option value="list" ${editData?.ClickUp_Type === 'list' || !editData?.ClickUp_Type ? 'selected' : ''}>📋 List</option>
+          <option value="folder" ${editData?.ClickUp_Type === 'folder' ? 'selected' : ''}>📁 Folder</option>
+          <option value="space" ${editData?.ClickUp_Type === 'space' ? 'selected' : ''}>🌐 Space</option>
+        </select>
+        <span class="help">Choose the level to track: Space (all tasks), Folder (tasks in folder), or List (specific list)</span>
+      </div>
+      <div class="form-group">
+        <label>ClickUp ID</label>
+        <input type="text" name="ClickUp_ID" placeholder="e.g., 901815849460" value="${esc(editData?.ClickUp_ID || '')}" required>
+        <span class="help">The ID from the ClickUp URL of the Space, Folder, or List</span>
+      </div>
+      <div class="form-group">
+        <label>Job Type</label>
+        <select name="Job_Type" required>
+          <option value="Art" ${editData?.Job_Type === 'Art' || !editData?.Job_Type ? 'selected' : ''}>Art</option>
+          <option value="Animation" ${editData?.Job_Type === 'Animation' ? 'selected' : ''}>Animation</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="Enabled">
+          <option value="Active" ${!editData?.Enabled || editData?.Enabled === 'Active' ? 'selected' : ''}>Active</option>
+          <option value="Paused" ${editData?.Enabled === 'Paused' ? 'selected' : ''}>Paused</option>
+        </select>
+      </div>
+    `;
   } else if (type === 'customer') {
     title.textContent = 'Add Customer';
     body.innerHTML = `
@@ -945,6 +1042,10 @@ async function handleFormSubmit(e) {
       endpoint = 'projects';
       method = 'POST';
       url = `${API}/api/${endpoint}`;
+    } else if (currentModalType === 'pm-config') {
+      endpoint = 'pm-tracking-configs';
+      method = currentEditId ? 'PUT' : 'POST';
+      url = currentEditId ? `${API}/api/${endpoint}/${currentEditId}` : `${API}/api/${endpoint}`;
     } else if (currentModalType === 'pm-tracking') {
       endpoint = 'pm-tracking';
       method = 'PUT'; // Only update is allowed via UI
@@ -983,6 +1084,7 @@ async function handleFormSubmit(e) {
     else if (currentModalType === 'list-mapping') loadListMappings();
     else if (currentModalType === 'customer') loadCustomers();
     else if (currentModalType === 'project') loadProjects();
+    else if (currentModalType === 'pm-config') loadPMTrackingConfigs();
     else if (currentModalType === 'pm-tracking') loadPMTracking();
   } catch (err) {
     alert('Save failed: ' + err.message);

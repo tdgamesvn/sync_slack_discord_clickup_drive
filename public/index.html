@@ -328,6 +328,35 @@
           <button class="btn btn-secondary" onclick="loadPMTracking()">🔄 Refresh</button>
         </div>
       </div>
+
+      <!-- PM Tracking Configs -->
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-body">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 16px; color: var(--text);">📋 Tracking Configs</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('pm-config')">+ Add PM Config</button>
+          </div>
+          <table class="data-table" id="pm-configs-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>ClickUp ID</th>
+                <th>Job Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pm-configs-body">
+              <tr>
+                <td colspan="6" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PM Tasks Data -->
       <div class="card">
         <div class="card-body">
           <table class="data-table" id="pm-tracking-table">
