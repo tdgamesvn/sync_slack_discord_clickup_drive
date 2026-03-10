@@ -101,6 +101,48 @@ async function updateTaskStatus(taskId, status) {
     return res.data;
 }
 
+/**
+ * Get tasks in a list (paginated, fetches all).
+ */
+async function getTasks(listId, page = 0) {
+    const allTasks = [];
+    let currentPage = page;
+    while (true) {
+        const res = await api.get(`/list/${listId}/task`, {
+            params: { page: currentPage, subtasks: true, include_closed: true }
+        });
+        const tasks = res.data?.tasks || [];
+        allTasks.push(...tasks);
+        if (tasks.length < 100) break; // Last page
+        currentPage++;
+    }
+    return allTasks;
+}
+
+/**
+ * Get all lists in a folder.
+ */
+async function getListsInFolder(folderId) {
+    const res = await api.get(`/folder/${folderId}/list`);
+    return res.data?.lists || [];
+}
+
+/**
+ * Get all folders in a space.
+ */
+async function getFolders(spaceId) {
+    const res = await api.get(`/space/${spaceId}/folder`);
+    return res.data?.folders || [];
+}
+
+/**
+ * Get folderless lists in a space.
+ */
+async function getFolderlessLists(spaceId) {
+    const res = await api.get(`/space/${spaceId}/list`);
+    return res.data?.lists || [];
+}
+
 module.exports = {
     postComment,
     uploadAttachment,
@@ -108,5 +150,9 @@ module.exports = {
     deleteComment,
     getComments,
     getTask,
-    updateTaskStatus
+    updateTaskStatus,
+    getTasks,
+    getListsInFolder,
+    getFolders,
+    getFolderlessLists
 };

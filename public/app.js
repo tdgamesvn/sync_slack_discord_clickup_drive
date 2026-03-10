@@ -364,6 +364,31 @@ async function updatePaymentStatus(id, newStatus) {
   }
 }
 
+// ─── Refresh PM from ClickUp ──────────────────
+async function refreshPMFromClickUp() {
+  const btn = document.getElementById('btn-pm-sync');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Syncing...';
+  try {
+    const res = await apiFetch(`${API}/api/pm-tracking/refresh`, { method: 'POST' });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Refresh failed');
+    btn.textContent = `✅ ${result.total} tasks synced`;
+    if (result.errors && result.errors.length > 0) {
+      alert('Some configs had errors:\n' + result.errors.map(e => `${e.config}: ${e.error}`).join('\n'));
+    }
+    loadPMTrackingConfigs();
+    loadPMTracking();
+  } catch (err) {
+    alert('Refresh failed: ' + err.message);
+    btn.textContent = origText;
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = origText; }, 3000);
+  }
+}
+
 // ─── PM Tracking Configs ──────────────────────
 async function loadPMTrackingConfigs() {
   try {

@@ -355,6 +355,77 @@ router.put('/pm-tracking/:id', async (req, res) => {
     }
 });
 
+// ─── Refresh PM Tracking (re-fetch from ClickUp) ─────
+router.post('/pm-tracking/refresh', async (req, res) => {
+    try {
+        const clickup = require('./platforms/clickup-api');
+        const configs = await nocodb.getPMTrackingConfigs();
+        const activeConfigs = configs.filter(c => c.Enabled !== 'Paused');
+
+        if (activeConfigs.length === 0) {
+            return res.json({ message: 'No active PM configs to refresh', total: 0 });
+        }
+
+        let totalUpserted = 0;
+        const errors = [];
+
+        for (const cfg of activeConfigs) {
+            try {
+                // Collect all list IDs to fetch tasks from
+                let listIds = [];
+
+                if (cfg.ClickUp_Type === 'list') {
+                    listIds.push(cfg.ClickUp_ID);
+                } else if (cfg.ClickUp_Type === 'folder') {
+                    const lists = await clickup.getListsInFolder(cfg.ClickUp_ID);
+                    listIds = lists.map(l => l.id);
+                } else if (cfg.ClickUp_Type === 'space') {
+                    // Get folders + folderless lists
+                    const [folders, folderlessLists] = await Promise.all([
+                        clickup.getFolders(cfg.ClickUp_ID),
+                        clickup.getFolderlessLists(cfg.ClickUp_ID)
+                    ]);
+                    for (const folder of folders) {
+                        const lists = await clickup.getListsInFolder(folder.id);
+                        listIds.push(...lists.map(l => l.id));
+                    }
+                    listIds.push(...folderlessLists.map(l => l.id));
+                }
+
+                console.log(`[PM Refresh] Config "${cfg.Title}" (${cfg.ClickUp_Type}:${cfg.ClickUp_ID}) → ${listIds.length} lists`);
+
+                for (const listId of listIds) {
+                    const tasks = await clickup.getTasks(listId);
+                    for (const task of tasks) {
+                        await nocodb.upsertPMTaskTracking({
+                            Task_ID: task.id,
+                            Task_Name: task.name || 'Unknown',
+                            Status: task.status?.status || 'unknown',
+                            Job_Type: cfg.Job_Type,
+                            Assignee: task.assignees?.map(a => a.username).join(', ') || '',
+                            Task_URL: task.url || '#',
+                            PM_Config_Title: cfg.Title,
+                        });
+                        totalUpserted++;
+                    }
+                }
+            } catch (cfgErr) {
+                console.error(`[PM Refresh] Error on config "${cfg.Title}":`, cfgErr.message);
+                errors.push({ config: cfg.Title, error: cfgErr.message });
+            }
+        }
+
+        res.json({
+            message: `Refreshed ${totalUpserted} tasks from ${activeConfigs.length} configs`,
+            total: totalUpserted,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (err) {
+        console.error('[PM Refresh] Error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ─── Dashboard Stats ──────────────────────────
 
 router.get('/stats', async (req, res) => {
