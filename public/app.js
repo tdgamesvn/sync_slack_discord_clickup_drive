@@ -302,10 +302,12 @@ async function editDriveConfig(id) {
 async function loadPMTracking() {
   try {
     const tbody = document.getElementById('pm-tracking-body');
+    const pmConfig = document.getElementById('pm-filter-config')?.value;
     const jobType = document.getElementById('pm-filter-jobtype')?.value;
     const paymentStatus = document.getElementById('pm-filter-payment')?.value;
 
     let url = `${API}/api/pm-tracking?limit=100`;
+    if (pmConfig) url += `&pmConfig=${encodeURIComponent(pmConfig)}`;
     if (jobType) url += `&jobType=${encodeURIComponent(jobType)}`;
     if (paymentStatus) url += `&paymentStatus=${encodeURIComponent(paymentStatus)}`;
 
@@ -369,6 +371,14 @@ async function loadPMTrackingConfigs() {
     const { data } = await res.json();
     const tbody = document.getElementById('pm-configs-body');
     if (!tbody) return;
+
+    // Populate filter dropdown
+    const filterSelect = document.getElementById('pm-filter-config');
+    if (filterSelect) {
+      const currentVal = filterSelect.value;
+      filterSelect.innerHTML = '<option value="">-- All Configs --</option>' +
+        (data || []).map(c => `<option value="${esc(c.Title)}" ${currentVal === c.Title ? 'selected' : ''}>${esc(c.Title)}</option>`).join('');
+    }
 
     if (!data || data.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No PM configs yet. Click "+ Add PM Config" to start tracking.</td></tr>';
@@ -936,10 +946,8 @@ async function openModal(type, editData = null) {
       </div>
       <div class="form-group">
         <label>Job Type</label>
-        <select name="Job_Type" required>
-          <option value="Art" ${editData?.Job_Type === 'Art' || !editData?.Job_Type ? 'selected' : ''}>Art</option>
-          <option value="Animation" ${editData?.Job_Type === 'Animation' ? 'selected' : ''}>Animation</option>
-        </select>
+        <input type="text" name="Job_Type" placeholder="e.g., Art, Animation, 3D Modeling, VFX..." value="${esc(editData?.Job_Type || '')}" required>
+        <span class="help">Free text — enter any job type for categorization</span>
       </div>
       <div class="form-group">
         <label>Status</label>

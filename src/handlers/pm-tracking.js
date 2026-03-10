@@ -35,6 +35,7 @@ async function handlePMTracking(task_id, taskDeet, listId, currentStatus) {
         Job_Type: jobType,
         Assignee: taskDeet?.assignees?.map(a => a.username).join(', ') || '',
         Task_URL: taskDeet?.url || '#',
+        PM_Config_Title: pmConfig?.Title || '',
     };
 
     await upsertPMTaskTracking(taskData);

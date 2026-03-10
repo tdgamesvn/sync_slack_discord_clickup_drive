@@ -312,6 +312,10 @@
           <p class="subtitle">Realtime sync with ClickUp. Internal cost tracking.</p>
         </div>
         <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
+          <select id="pm-filter-config" class="form-group" style="padding: 6px; width: auto;"
+            onchange="loadPMTracking()">
+            <option value="">-- All Configs --</option>
+          </select>
           <select id="pm-filter-jobtype" class="form-group" style="padding: 6px; width: auto;"
             onchange="loadPMTracking()">
             <option value="">-- All Job Types --</option>

@@ -307,6 +307,9 @@ router.get('/pm-tracking', async (req, res) => {
         if (req.query.paymentStatus) {
             params.push(`(Payment_Status,eq,${req.query.paymentStatus})`);
         }
+        if (req.query.pmConfig) {
+            params.push(`(PM_Config_Title,eq,${req.query.pmConfig})`);
+        }
 
         if (params.length > 0) {
             url += `&where=${encodeURIComponent(params.join('~and'))}`;

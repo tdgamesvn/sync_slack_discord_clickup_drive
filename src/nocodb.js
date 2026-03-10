@@ -333,7 +333,8 @@ async function upsertPMTaskTracking(taskData) {
                 Status: taskData.Status,
                 Job_Type: taskData.Job_Type,
                 Assignee: taskData.Assignee,
-                Task_URL: taskData.Task_URL
+                Task_URL: taskData.Task_URL,
+                PM_Config_Title: taskData.PM_Config_Title || existing.PM_Config_Title || ''
             };
             // Note: We deliberately do NOT update 'Cost', 'Payment_Status', 'Notes' 
             // as those are managed independently by the PM on the NocoDB UI.
@@ -348,7 +349,8 @@ async function upsertPMTaskTracking(taskData) {
                 Job_Type: taskData.Job_Type,
                 Assignee: taskData.Assignee,
                 Task_URL: taskData.Task_URL,
-                Payment_Status: 'Unpaid' // Default value
+                Payment_Status: 'Unpaid', // Default value
+                PM_Config_Title: taskData.PM_Config_Title || ''
             };
             const postRes = await api.post(`/tables/${ids.PM_Tasks_Tracking}/records`, insertPayload);
             return postRes.data;
