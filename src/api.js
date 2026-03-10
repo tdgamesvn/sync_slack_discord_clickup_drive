@@ -310,6 +310,18 @@ router.get('/pm-tracking', async (req, res) => {
         if (req.query.pmConfig) {
             params.push(`(PM_Config_Title,eq,${req.query.pmConfig})`);
         }
+        if (req.query.assignee) {
+            params.push(`(Assignee,like,${req.query.assignee})`);
+        }
+        if (req.query.status) {
+            params.push(`(Status,eq,${req.query.status})`);
+        }
+        if (req.query.hasDueDate === 'yes') {
+            params.push(`(Due_Date,isnot,null)`);
+            params.push(`(Due_Date,neq,)`);
+        } else if (req.query.hasDueDate === 'no') {
+            params.push(`~or(Due_Date,is,null)~or(Due_Date,eq,)`);
+        }
 
         if (params.length > 0) {
             url += `&where=${encodeURIComponent(params.join('~and'))}`;
@@ -336,12 +348,14 @@ router.put('/pm-tracking/:id', async (req, res) => {
         }
         const axios = require('axios');
 
-        // Allowed fields to update from UI: Cost, Payment_Status, Notes
+        // Allowed fields to update from UI: Cost, Payment_Status, Notes, Bonus, Bonus_Reason
         const updateData = { Id: parseInt(req.params.id) };
         if (req.body.Cost !== undefined) updateData.Cost = req.body.Cost;
         if (req.body.Currency !== undefined) updateData.Currency = req.body.Currency;
         if (req.body.Payment_Status !== undefined) updateData.Payment_Status = req.body.Payment_Status;
         if (req.body.Notes !== undefined) updateData.Notes = req.body.Notes;
+        if (req.body.Bonus !== undefined) updateData.Bonus = req.body.Bonus;
+        if (req.body.Bonus_Reason !== undefined) updateData.Bonus_Reason = req.body.Bonus_Reason;
 
         const patchRes = await axios.patch(
             `${config.NOCODB_URL}/api/v2/tables/${ids.PM_Tasks_Tracking}/records`,
@@ -351,6 +365,105 @@ router.put('/pm-tracking/:id', async (req, res) => {
 
         res.json({ data: patchRes.data });
     } catch (err) {
+        res.status(500).json({ error: err.response?.data || err.message });
+    }
+});
+
+// ─── Invoice: Generate monthly summary ──────────
+router.get('/pm-tracking/invoice', async (req, res) => {
+    try {
+        const ids = await nocodb.getTableIds();
+        if (!ids.PM_Tasks_Tracking) {
+            return res.status(500).json({ error: 'PM tracking table not found' });
+        }
+        const axios = require('axios');
+        const month = req.query.month; // YYYY-MM
+        const assigneeFilter = req.query.assignee;
+
+        // Build filter: Payment_Status = Unpaid AND has Closed_Date (task must be closed to be invoiced)
+        let whereClause = `~or(Payment_Status,eq,Unpaid)~or(Payment_Status,is,null)~or(Payment_Status,eq,)`;
+        // Must have Closed_Date
+        whereClause = `(${whereClause})~and(Closed_Date,isnot,null)~and(Closed_Date,neq,)`;
+
+        if (assigneeFilter) {
+            whereClause = `(${whereClause})~and(Assignee,like,${assigneeFilter})`;
+        }
+
+        let allTasks = [];
+        let offset = 0;
+        const limit = 100;
+
+        // Paginate to get all unpaid closed tasks
+        while (true) {
+            const url = `${config.NOCODB_URL}/api/v2/tables/${ids.PM_Tasks_Tracking}/records?limit=${limit}&offset=${offset}&where=${encodeURIComponent(whereClause)}`;
+            const getRes = await axios.get(url, {
+                headers: { 'xc-token': config.NOCODB_API_TOKEN, 'Content-Type': 'application/json' }
+            });
+            const list = getRes.data.list || [];
+            allTasks = allTasks.concat(list);
+            if (list.length < limit) break;
+            offset += limit;
+        }
+
+        // Filter by month: only tasks closed on or before end of selected month 
+        let filtered = allTasks;
+        if (month) {
+            const endOfMonth = new Date(month + '-01');
+            endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+            endOfMonth.setDate(0); // last day of selected month
+            const endStr = endOfMonth.toISOString().split('T')[0];
+
+            filtered = allTasks.filter(t => t.Closed_Date <= endStr);
+        }
+
+        // Group by Assignee
+        const invoices = {};
+        for (const t of filtered) {
+            const assignee = t.Assignee || 'Unassigned';
+            if (!invoices[assignee]) {
+                invoices[assignee] = { tasks: [], totalCost: 0, totalBonus: 0, grandTotal: 0, currency: 'USD' };
+            }
+            const cost = parseFloat(t.Cost) || 0;
+            const bonus = parseFloat(t.Bonus) || 0;
+            invoices[assignee].tasks.push(t);
+            invoices[assignee].totalCost += cost;
+            invoices[assignee].totalBonus += bonus;
+            invoices[assignee].grandTotal += cost + bonus;
+            if (t.Currency === 'VND') invoices[assignee].currency = 'VND';
+        }
+
+        res.json({ invoices, month: month || 'all' });
+    } catch (err) {
+        console.error('[Invoice] Error:', err.message);
+        res.status(500).json({ error: err.response?.data || err.message });
+    }
+});
+
+// ─── Invoice: Mark tasks as Paid ────────────────
+router.post('/pm-tracking/invoice/mark-paid', async (req, res) => {
+    try {
+        const ids = await nocodb.getTableIds();
+        if (!ids.PM_Tasks_Tracking) {
+            return res.status(500).json({ error: 'PM tracking table not found' });
+        }
+        const axios = require('axios');
+        const taskIds = req.body.taskIds;
+
+        if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+            return res.status(400).json({ error: 'taskIds array is required' });
+        }
+
+        // Batch update all tasks to Paid
+        const updates = taskIds.map(id => ({ Id: parseInt(id), Payment_Status: 'Paid' }));
+        const patchRes = await axios.patch(
+            `${config.NOCODB_URL}/api/v2/tables/${ids.PM_Tasks_Tracking}/records`,
+            updates,
+            { headers: { 'xc-token': config.NOCODB_API_TOKEN, 'Content-Type': 'application/json' } }
+        );
+
+        res.json({ updated: taskIds.length, data: patchRes.data });
+    } catch (err) {
+        console.error('[Invoice Mark Paid] Error:', err.message);
         res.status(500).json({ error: err.response?.data || err.message });
     }
 });
@@ -405,6 +518,8 @@ router.post('/pm-tracking/refresh', async (req, res) => {
                             Assignee: task.assignees?.map(a => a.username).join(', ') || '',
                             Task_URL: task.url || '#',
                             PM_Config_Title: cfg.Title,
+                            Due_Date: task.due_date ? new Date(parseInt(task.due_date)).toISOString().split('T')[0] : '',
+                            Closed_Date: task.date_closed ? new Date(parseInt(task.date_closed)).toISOString().split('T')[0] : '',
                         });
                         totalUpserted++;
                     }

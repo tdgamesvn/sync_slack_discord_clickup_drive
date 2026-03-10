@@ -334,9 +334,11 @@ async function upsertPMTaskTracking(taskData) {
                 Job_Type: taskData.Job_Type,
                 Assignee: taskData.Assignee,
                 Task_URL: taskData.Task_URL,
-                PM_Config_Title: taskData.PM_Config_Title || existing.PM_Config_Title || ''
+                PM_Config_Title: taskData.PM_Config_Title || existing.PM_Config_Title || '',
+                Due_Date: taskData.Due_Date || existing.Due_Date || '',
+                Closed_Date: taskData.Closed_Date || existing.Closed_Date || '',
             };
-            // Note: We deliberately do NOT update 'Cost', 'Payment_Status', 'Notes' 
+            // Note: We deliberately do NOT update 'Cost', 'Payment_Status', 'Notes', 'Bonus', 'Bonus_Reason'
             // as those are managed independently by the PM on the NocoDB UI.
             const patchRes = await api.patch(`/tables/${ids.PM_Tasks_Tracking}/records`, [updatePayload]);
             return patchRes.data;
@@ -350,7 +352,9 @@ async function upsertPMTaskTracking(taskData) {
                 Assignee: taskData.Assignee,
                 Task_URL: taskData.Task_URL,
                 Payment_Status: 'Unpaid', // Default value
-                PM_Config_Title: taskData.PM_Config_Title || ''
+                PM_Config_Title: taskData.PM_Config_Title || '',
+                Due_Date: taskData.Due_Date || '',
+                Closed_Date: taskData.Closed_Date || '',
             };
             const postRes = await api.post(`/tables/${ids.PM_Tasks_Tracking}/records`, insertPayload);
             return postRes.data;

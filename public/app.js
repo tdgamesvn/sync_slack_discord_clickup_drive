@@ -1,6 +1,30 @@
-// ─── API Base ─────────────────────────────────
 const API = window.location.origin;
 
+// ─── Theme ────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('chatsync_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  updateThemeButton(saved);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('chatsync_theme', next);
+  updateThemeButton(next);
+}
+
+function updateThemeButton(theme) {
+  const icon = document.getElementById('theme-icon');
+  const btn = document.getElementById('theme-toggle');
+  if (icon && btn) {
+    icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    btn.querySelector('span:last-child').textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+  }
+}
+
+initTheme();
 // ─── Auth ─────────────────────────────────────
 let authToken = localStorage.getItem('chatsync_token');
 
@@ -87,6 +111,13 @@ function switchPage(page) {
   if (page === 'chat-sync') { loadChatFilters(); loadSyncConfigs(); }
   if (page === 'drive-sync') { loadDriveFilters(); loadDriveConfigs(); }
   if (page === 'pm-tracking') { loadPMTrackingConfigs(); loadPMTracking(); }
+  if (page === 'invoice') {
+    // Set default invoice month to current month
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthInput = document.getElementById('invoice-month');
+    if (monthInput && !monthInput.value) monthInput.value = monthStr;
+  }
   if (page === 'customers') loadCustomers();
   if (page === 'projects') loadProjects();
   if (page === 'logs') { loadLogFilters(); loadLogs(); }
@@ -305,45 +336,176 @@ async function loadPMTracking() {
     const pmConfig = document.getElementById('pm-filter-config')?.value;
     const jobType = document.getElementById('pm-filter-jobtype')?.value;
     const paymentStatus = document.getElementById('pm-filter-payment')?.value;
+    const assignee = document.getElementById('pm-filter-assignee')?.value;
+    const status = document.getElementById('pm-filter-status')?.value;
+    const hasDueDate = document.getElementById('pm-filter-duedate')?.value;
 
     let url = `${API}/api/pm-tracking?limit=100`;
     if (pmConfig) url += `&pmConfig=${encodeURIComponent(pmConfig)}`;
     if (jobType) url += `&jobType=${encodeURIComponent(jobType)}`;
     if (paymentStatus) url += `&paymentStatus=${encodeURIComponent(paymentStatus)}`;
+    if (assignee) url += `&assignee=${encodeURIComponent(assignee)}`;
+    if (status) url += `&status=${encodeURIComponent(status)}`;
+    if (hasDueDate) url += `&hasDueDate=${encodeURIComponent(hasDueDate)}`;
 
     const res = await apiFetch(url);
     const { data } = await res.json();
 
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No tracking data found for the selected filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No tracking data found for the selected filters.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = data.map((t) => `
+    // Populate dynamic filters (Assignee, Status, Job Type)
+    populatePMFilters(data);
+
+    tbody.innerHTML = data.map((t) => {
+      const costDisplay = (t.Cost !== null && t.Cost !== undefined)
+        ? (t.Currency === 'VND'
+          ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(t.Cost)
+          : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(t.Cost))
+        : '$0.00';
+
+      const bonusDisplay = (t.Bonus !== null && t.Bonus !== undefined && t.Bonus !== 0)
+        ? (t.Currency === 'VND'
+          ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(t.Bonus)
+          : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(t.Bonus))
+        : '—';
+
+      return `
       <tr>
         <td><strong>${esc(t.Job_Type || '—')}</strong></td>
-        <td><a href="${esc(t.Task_URL || '#')}" target="_blank" style="color: #667eea; text-decoration: none;">${esc(t.Task_Name || '—')}</a> <br><small style="color: #888;">${esc(t.Task_ID || '')}</small></td>
+        <td><a href="${esc(t.Task_URL || '#')}" target="_blank" style="color: var(--primary); text-decoration: none;">${esc(t.Task_Name || '—')}</a> <br><small style="color: var(--text-muted);">${esc(t.Task_ID || '')}</small></td>
         <td>${statusBadge(t.Status)}</td>
         <td>${esc(t.Assignee || '—')}</td>
-        <td style="font-weight: bold; color: #38f9d7;">
-          ${(t.Cost !== null && t.Cost !== undefined) ? (t.Currency === 'VND' ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(t.Cost) : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(t.Cost)) : '$0.00'}
+        <td>${esc(t.Due_Date || '—')}</td>
+        <td>${esc(t.Closed_Date || '—')}</td>
+        <td class="inline-editable" onclick="inlineEditCost(this, ${t.Id}, ${t.Cost || 0}, '${esc(t.Currency || 'USD')}')" title="Click to edit" style="cursor:pointer; font-weight:bold; color:var(--success);">
+          ${costDisplay}
         </td>
+        <td class="inline-editable" onclick="inlineEditBonus(this, ${t.Id}, ${t.Bonus || 0}, '${esc(t.Currency || 'USD')}')" title="Click to edit" style="cursor:pointer;">
+          ${bonusDisplay}
+        </td>
+        <td style="max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(t.Bonus_Reason || '')}">${esc(t.Bonus_Reason || '—')}</td>
         <td>
-          <select class="form-group" style="padding: 4px; font-size: 12px; background: var(--bg); color: var(--text);" onchange="updatePaymentStatus(${t.Id}, this.value)">
-            <option value="Unpaid" ${!t.Payment_Status || t.Payment_Status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
-            <option value="Advance Paid" ${t.Payment_Status === 'Advance Paid' ? 'selected' : ''}>Advance Paid</option>
-            <option value="Fully Paid" ${t.Payment_Status === 'Fully Paid' ? 'selected' : ''}>Fully Paid</option>
-          </select>
+          <span class="payment-badge ${(!t.Payment_Status || t.Payment_Status === 'Unpaid') ? 'payment-unpaid' : 'payment-paid'}" 
+            onclick="togglePaymentStatus(${t.Id}, '${t.Payment_Status || 'Unpaid'}')" 
+            title="Click to toggle" style="cursor:pointer;">
+            ${(!t.Payment_Status || t.Payment_Status === 'Unpaid') ? '🔴 Pending' : '🟢 Done'}
+          </span>
         </td>
         <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${esc(t.Notes || '')}">${esc(t.Notes || '—')}</td>
         <td class="action-btns">
-          <button class="btn btn-sm btn-secondary" onclick='editPMTracking(${JSON.stringify(t).replace(/'/g, "&apos;")})'>✏️ Edit (Local)</button>
+          <button class="btn btn-sm btn-secondary" onclick='editPMTracking(${JSON.stringify(t).replace(/'/g, "&apos;")})'>✏️ Edit</button>
         </td>
       </tr>
-    `).join('');
+    `}).join('');
   } catch (err) {
     console.error('Load PM tracking failed:', err);
   }
+}
+
+function populatePMFilters(data) {
+  // Populate Assignee filter
+  const assigneeSelect = document.getElementById('pm-filter-assignee');
+  const currentAssignee = assigneeSelect?.value || '';
+  const assignees = [...new Set(data.map(t => t.Assignee).filter(Boolean))].sort();
+  if (assigneeSelect && assigneeSelect.options.length <= 1) {
+    assignees.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a; opt.textContent = a;
+      if (a === currentAssignee) opt.selected = true;
+      assigneeSelect.appendChild(opt);
+    });
+  }
+
+  // Populate Status filter
+  const statusSelect = document.getElementById('pm-filter-status');
+  const currentStatus = statusSelect?.value || '';
+  const statuses = [...new Set(data.map(t => t.Status).filter(Boolean))].sort();
+  if (statusSelect && statusSelect.options.length <= 1) {
+    statuses.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s.toUpperCase();
+      if (s === currentStatus) opt.selected = true;
+      statusSelect.appendChild(opt);
+    });
+  }
+
+  // Populate Job Type filter
+  const jobTypeSelect = document.getElementById('pm-filter-jobtype');
+  const currentJobType = jobTypeSelect?.value || '';
+  const jobTypes = [...new Set(data.map(t => t.Job_Type).filter(Boolean))].sort();
+  if (jobTypeSelect && jobTypeSelect.options.length <= 1) {
+    jobTypes.forEach(j => {
+      const opt = document.createElement('option');
+      opt.value = j; opt.textContent = j;
+      if (j === currentJobType) opt.selected = true;
+      jobTypeSelect.appendChild(opt);
+    });
+  }
+}
+
+async function inlineEditCost(td, id, currentVal, currency) {
+  if (td.querySelector('input')) return; // Already editing
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = '0.01';
+  input.value = currentVal;
+  input.style.cssText = 'width:80px; padding:4px; font-size:13px; border:1px solid var(--primary); border-radius:4px; background:var(--bg); color:var(--text);';
+  td.textContent = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+
+  const save = async () => {
+    const newVal = parseFloat(input.value) || 0;
+    try {
+      await apiFetch(`${API}/api/pm-tracking/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Cost: newVal })
+      });
+      loadPMTracking();
+    } catch (err) { console.error('Cost update failed:', err); }
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { loadPMTracking(); } });
+}
+
+async function inlineEditBonus(td, id, currentVal, currency) {
+  if (td.querySelector('input')) return;
+  // Create container for bonus amount + reason
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex; flex-direction:column; gap:4px;';
+
+  const amountInput = document.createElement('input');
+  amountInput.type = 'number';
+  amountInput.step = '0.01';
+  amountInput.value = currentVal;
+  amountInput.placeholder = 'Bonus $';
+  amountInput.style.cssText = 'width:80px; padding:4px; font-size:13px; border:1px solid var(--primary); border-radius:4px; background:var(--bg); color:var(--text);';
+
+  wrapper.appendChild(amountInput);
+  td.textContent = '';
+  td.appendChild(wrapper);
+  amountInput.focus();
+  amountInput.select();
+
+  const save = async () => {
+    const newVal = parseFloat(amountInput.value) || 0;
+    const reason = prompt('Lý do bonus:') || '';
+    try {
+      await apiFetch(`${API}/api/pm-tracking/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Bonus: newVal, Bonus_Reason: reason })
+      });
+      loadPMTracking();
+    } catch (err) { console.error('Bonus update failed:', err); }
+  };
+  amountInput.addEventListener('blur', save);
+  amountInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); amountInput.blur(); } if (e.key === 'Escape') { loadPMTracking(); } });
 }
 
 function editPMTracking(taskData) {
@@ -358,10 +520,16 @@ async function updatePaymentStatus(id, newStatus) {
       headers: { 'Content-Type': 'application/json' }
     });
     if (!res.ok) throw new Error('Update failed');
+    loadPMTracking();
   } catch (err) {
     alert('Failed to update payment status: ' + err.message);
-    loadPMTracking(); // reload to revert to original state
+    loadPMTracking();
   }
+}
+
+async function togglePaymentStatus(id, currentStatus) {
+  const newStatus = (!currentStatus || currentStatus === 'Unpaid') ? 'Paid' : 'Unpaid';
+  await updatePaymentStatus(id, newStatus);
 }
 
 // ─── Refresh PM from ClickUp ──────────────────
@@ -386,6 +554,235 @@ async function refreshPMFromClickUp() {
   } finally {
     btn.disabled = false;
     setTimeout(() => { btn.textContent = origText; }, 3000);
+  }
+}
+
+// ─── Monthly Invoice ──────────────────────────
+async function generateInvoice() {
+  const container = document.getElementById('invoice-container');
+  const month = document.getElementById('invoice-month')?.value;
+  const assignee = document.getElementById('invoice-assignee')?.value;
+
+  if (!month) {
+    alert('Vui lòng chọn tháng!');
+    return;
+  }
+
+  container.innerHTML = `<div style="padding:40px; text-align:center;">
+    <div style="display:inline-block; width:32px; height:32px; border:3px solid var(--primary); border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+    <p style="margin-top:12px; color:var(--text-muted);">Đang tạo hoá đơn...</p>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>`;
+
+  try {
+    let url = `${API}/api/pm-tracking/invoice?month=${encodeURIComponent(month)}`;
+    if (assignee) url += `&assignee=${encodeURIComponent(assignee)}`;
+
+    const res = await apiFetch(url);
+    const { invoices } = await res.json();
+
+    if (!invoices || Object.keys(invoices).length === 0) {
+      container.innerHTML = `<div style="padding:50px; text-align:center;">
+        <div style="font-size:48px; margin-bottom:12px;">📭</div>
+        <div style="font-size:16px; font-weight:600; color:var(--text); margin-bottom:4px;">Không có task nào cần thanh toán</div>
+        <div style="font-size:13px; color:var(--text-muted);">Tất cả tasks đã thanh toán, hoặc chưa có task nào closed trong tháng này.</div>
+      </div>`;
+      return;
+    }
+
+    // Populate assignee dropdown
+    const assigneeSelect = document.getElementById('invoice-assignee');
+    const currentVal = assigneeSelect.value;
+    const existingOpts = new Set(Array.from(assigneeSelect.options).map(o => o.value));
+    Object.keys(invoices).forEach(name => {
+      if (!existingOpts.has(name)) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        assigneeSelect.appendChild(opt);
+        existingOpts.add(name);
+      }
+    });
+    assigneeSelect.value = currentVal;
+
+    // Parse month
+    const [yyyy, mm] = month.split('-');
+    const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    const monthDisplay = `${monthNames[parseInt(mm) - 1]}, ${yyyy}`;
+
+    // Summary stats
+    let allTaskCount = 0, allGrandTotal = 0;
+    const allCurrency = Object.values(invoices)[0]?.currency || 'USD';
+    const fmtGlobal = (val) => allCurrency === 'VND'
+      ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+      : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
+    Object.values(invoices).forEach(inv => {
+      allTaskCount += inv.tasks.length;
+      allGrandTotal += inv.grandTotal;
+    });
+
+    let html = `
+    <!-- Summary Bar -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px;">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
+        <div style="font-size:28px; font-weight:800; color:var(--primary);">${Object.keys(invoices).length}</div>
+        <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Assignees</div>
+      </div>
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
+        <div style="font-size:28px; font-weight:800; color:var(--primary);">${allTaskCount}</div>
+        <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Tasks Pending</div>
+      </div>
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
+        <div style="font-size:24px; font-weight:800; color:var(--primary);">${fmtGlobal(allGrandTotal)}</div>
+        <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Tổng thanh toán</div>
+      </div>
+    </div>`;
+
+    // Invoice cards per assignee
+    html += Object.entries(invoices).map(([assigneeName, inv]) => {
+      const fmt = (val) => inv.currency === 'VND'
+        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+        : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
+      const taskIds = inv.tasks.map(t => t.Id);
+      const overdueCount = inv.tasks.filter(t => t.Closed_Date && t.Closed_Date < `${yyyy}-${mm}-01`).length;
+
+      const rows = inv.tasks.map((t, i) => {
+        const cost = parseFloat(t.Cost) || 0;
+        const bonus = parseFloat(t.Bonus) || 0;
+        const closedDate = t.Closed_Date || '—';
+        const isOverdue = t.Closed_Date && t.Closed_Date < `${yyyy}-${mm}-01`;
+        const rowBg = i % 2 === 0 ? 'background:var(--bg-table-stripe);' : '';
+        return `<tr style="${rowBg}">
+          <td style="padding:10px 14px; font-size:12px; color:var(--text-muted);">${i + 1}</td>
+          <td style="padding:10px 14px; font-size:13px; font-weight:500;">${esc(t.Task_Name || '—')}</td>
+          <td style="padding:10px 14px;"><span style="background:var(--primary-light); color:var(--primary); padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">${esc(t.Job_Type || '—')}</span></td>
+          <td style="padding:10px 14px; font-size:13px;">${closedDate}${isOverdue ? ' <span style="background:rgba(245,158,11,0.15); color:#F59E0B; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600;">OVERDUE</span>' : ''}</td>
+          <td style="padding:10px 14px; text-align:right; font-weight:600; font-size:13px;">${fmt(cost)}</td>
+          <td style="padding:10px 14px; text-align:right; font-size:13px; color:${bonus > 0 ? 'var(--success)' : 'var(--text-muted)'};">${bonus > 0 ? '+' + fmt(bonus) : '—'}</td>
+          <td style="padding:10px 14px; text-align:right; font-weight:700; font-size:13px;">${fmt(cost + bonus)}</td>
+        </tr>`;
+      }).join('');
+
+      return `
+      <div class="invoice-card" id="invoice-${esc(assigneeName)}" style="margin-bottom:28px;">
+        <div class="invoice-content" style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+          
+          <!-- Gradient Header -->
+          <div style="background:linear-gradient(135deg, var(--primary), #F97316); padding:20px 24px; color:#fff;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:2px; opacity:0.85;">Payment Invoice</div>
+                <div style="font-size:22px; font-weight:800; margin-top:4px;">📋 ${esc(assigneeName)}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:12px; opacity:0.85;">${monthDisplay}</div>
+                <div style="font-size:24px; font-weight:800; margin-top:2px;">${inv.tasks.length} <span style="font-size:13px; font-weight:400;">tasks</span></div>
+              </div>
+            </div>
+            ${overdueCount > 0 ? `<div style="margin-top:10px; background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:8px; font-size:12px; display:inline-block;">⚠️ ${overdueCount} task từ tháng trước chưa thanh toán</div>` : ''}
+          </div>
+
+          <!-- Task Table -->
+          <div style="padding:0;">
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="border-bottom:2px solid var(--border);">
+                  <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">#</th>
+                  <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Task Name</th>
+                  <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Type</th>
+                  <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Closed</th>
+                  <th style="padding:12px 14px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Cost</th>
+                  <th style="padding:12px 14px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Bonus</th>
+                  <th style="padding:12px 14px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+
+          <!-- Footer Totals -->
+          <div style="padding:20px 24px; border-top:2px solid var(--border); background:var(--bg-table-head);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; gap:32px; font-size:13px;">
+                <div>
+                  <span style="color:var(--text-muted);">Cost</span>
+                  <div style="font-weight:700; font-size:15px; margin-top:2px;">${fmt(inv.totalCost)}</div>
+                </div>
+                <div>
+                  <span style="color:var(--text-muted);">Bonus</span>
+                  <div style="font-weight:700; font-size:15px; margin-top:2px; color:var(--success);">${fmt(inv.totalBonus)}</div>
+                </div>
+              </div>
+              <div style="background:linear-gradient(135deg, var(--primary), #F97316); color:#fff; padding:12px 28px; border-radius:10px; text-align:center;">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.9;">Grand Total</div>
+                <div style="font-size:22px; font-weight:800;">${fmt(inv.grandTotal)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:10px; margin-top:14px; justify-content:flex-end;" class="invoice-actions">
+          <button class="btn btn-secondary btn-sm" onclick="exportInvoicePNG('invoice-${esc(assigneeName)}', '${esc(assigneeName)}', '${month}')" style="padding:8px 16px;">📸 Export PNG</button>
+          <button class="btn btn-primary btn-sm" onclick="markInvoicePaid([${taskIds.join(',')}])" style="padding:8px 16px;">✅ Mark All Paid</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    container.innerHTML = html;
+
+  } catch (err) {
+    console.error('Generate invoice error:', err);
+    container.innerHTML = `<div style="padding:40px; text-align:center;">
+      <div style="font-size:48px; margin-bottom:12px;">❌</div>
+      <div style="font-size:15px; color:var(--danger);">${err.message}</div>
+    </div>`;
+  }
+}
+
+async function exportInvoicePNG(cardId, assigneeName, month) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  const content = card.querySelector('.invoice-content');
+  if (!content) return;
+
+  try {
+    const canvas = await html2canvas(content, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+
+    const link = document.createElement('a');
+    link.download = `invoice_${assigneeName}_${month}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+    console.error('Export PNG error:', err);
+  }
+}
+
+async function markInvoicePaid(taskIds) {
+  if (!confirm(`Đánh dấu ${taskIds.length} tasks là Done?`)) return;
+
+  try {
+    const res = await apiFetch(`${API}/api/pm-tracking/invoice/mark-paid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskIds })
+    });
+    if (!res.ok) throw new Error('Mark paid failed');
+    alert(`✅ Đã cập nhật ${taskIds.length} tasks thành Done!`);
+    loadPMTracking();
+    generateInvoice(); // refresh invoice
+  } catch (err) {
+    alert('Lỗi: ' + err.message);
+    console.error('Mark paid error:', err);
   }
 }
 
@@ -1025,14 +1422,21 @@ async function openModal(type, editData = null) {
       <div class="form-group">
         <label>Payment Status</label>
         <select name="Payment_Status">
-          <option value="Unpaid" ${editData?.Payment_Status === 'Unpaid' ? 'selected' : ''}>Unpaid</option>
-          <option value="Advance Paid" ${editData?.Payment_Status === 'Advance Paid' ? 'selected' : ''}>Advance Paid</option>
-          <option value="Fully Paid" ${editData?.Payment_Status === 'Fully Paid' ? 'selected' : ''}>Fully Paid</option>
+          <option value="Unpaid" ${!editData?.Payment_Status || editData?.Payment_Status === 'Unpaid' ? 'selected' : ''}>Pending</option>
+          <option value="Paid" ${editData?.Payment_Status === 'Paid' || editData?.Payment_Status === 'Fully Paid' || editData?.Payment_Status === 'Advance Paid' ? 'selected' : ''}>Done</option>
         </select>
       </div>
       <div class="form-group">
         <label>Notes</label>
         <textarea name="Notes" rows="3" placeholder="Additional notes...">${esc(editData?.Notes || '')}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Bonus</label>
+        <input type="number" step="0.01" name="Bonus" placeholder="0.00" value="${editData?.Bonus || ''}">
+      </div>
+      <div class="form-group">
+        <label>Bonus Reason</label>
+        <input type="text" name="Bonus_Reason" placeholder="Reason for the bonus..." value="${esc(editData?.Bonus_Reason || '')}">
       </div>
     `;
   }

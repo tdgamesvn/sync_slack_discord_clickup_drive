@@ -4,10 +4,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat Sync — ClickUp ↔ Slack ↔ Discord</title>
+  <title>ChatSync — ClickUp ↔ Slack ↔ Discord</title>
   <meta name="description" content="Cross-platform chat synchronization dashboard">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="index.css">
 </head>
 
@@ -15,25 +18,24 @@
   <!-- Login Overlay -->
   <div class="login-overlay" id="login-overlay">
     <div class="login-box">
-      <div class="logo" style="justify-content: center; margin-bottom: 24px;">
-        <span class="logo-icon">⚡</span>
-        <span class="logo-text">ChatSync</span>
+      <div class="login-logo">
+        <span class="login-logo-icon">⚡</span>
+        <span class="login-logo-text">ChatSync</span>
       </div>
-      <h2>Welcome Back</h2>
-      <p class="subtitle" style="text-align: center; margin-bottom: 24px;">Please sign in to continue</p>
+      <h2 class="login-title">Welcome Back</h2>
+      <p class="login-subtitle">Sign in to your dashboard</p>
 
       <form id="login-form">
         <div class="form-group">
           <label for="login-username">Username</label>
-          <input type="text" id="login-username" class="form-control" required placeholder="Enter username">
+          <input type="text" id="login-username" required placeholder="Enter username">
         </div>
         <div class="form-group">
           <label for="login-password">Password</label>
-          <input type="password" id="login-password" class="form-control" required placeholder="Enter password">
+          <input type="password" id="login-password" required placeholder="Enter password">
         </div>
-        <div id="login-error" class="error-text"
-          style="display: none; color: #f56565; margin-bottom: 16px; text-align: center; font-size: 14px;"></div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Sign In</button>
+        <div id="login-error" class="login-error"></div>
+        <button type="submit" class="btn btn-primary btn-full">Sign In</button>
       </form>
     </div>
   </div>
@@ -48,46 +50,50 @@
     </div>
     <ul class="nav-links">
       <li><a href="#" class="nav-link active" data-page="dashboard">
-          <span class="nav-icon">📊</span> Dashboard
+          <span class="nav-icon">📊</span> <span class="nav-label">Dashboard</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="chat-sync">
-          <span class="nav-icon">💬</span> Chat Sync
+          <span class="nav-icon">💬</span> <span class="nav-label">Chat Sync</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="customers">
-          <span class="nav-icon">🏢</span> Customers
+          <span class="nav-icon">🏢</span> <span class="nav-label">Customers</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="projects">
-          <span class="nav-icon">📦</span> Projects
+          <span class="nav-icon">📦</span> <span class="nav-label">Projects</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="drive-sync">
-          <span class="nav-icon">📁</span> Drive Sync
+          <span class="nav-icon">📁</span> <span class="nav-label">Drive Sync</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="pm-tracking">
-          <span class="nav-icon">💰</span> PM Tracking
+          <span class="nav-icon">💰</span> <span class="nav-label">PM Tracking</span>
+        </a></li>
+      <li><a href="#" class="nav-link" data-page="invoice">
+          <span class="nav-icon">🧾</span> <span class="nav-label">Monthly Invoice</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="list-mappings">
-          <span class="nav-icon">🔗</span> List Configs
+          <span class="nav-icon">🔗</span> <span class="nav-label">List Configs</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="logs">
-          <span class="nav-icon">📋</span> Sync Logs
+          <span class="nav-icon">📋</span> <span class="nav-label">Sync Logs</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="name-mappings">
-          <span class="nav-icon">👤</span> Name Mappings
+          <span class="nav-icon">👤</span> <span class="nav-label">Name Mappings</span>
         </a></li>
       <li><a href="#" class="nav-link" data-page="settings">
-          <span class="nav-icon">⚙️</span> Settings
+          <span class="nav-icon">⚙️</span> <span class="nav-label">Settings</span>
         </a></li>
     </ul>
     <div class="sidebar-footer">
       <div class="status-badge" id="server-status">
         <span class="status-dot"></span>
-        <span>Connecting...</span>
+        <span class="status-text">Connecting...</span>
       </div>
-      <div style="margin-top: 16px;">
-        <button class="btn btn-secondary" style="width: 100%; justify-content: center;" onclick="logout()">
-          <span class="nav-icon">🚪</span> Logout
-        </button>
-      </div>
+      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+        <span id="theme-icon">🌙</span> <span class="theme-label">Dark Mode</span>
+      </button>
+      <button class="btn btn-secondary btn-full btn-logout" onclick="logout()">
+        <span>🚪</span> <span class="nav-label">Logout</span>
+      </button>
     </div>
   </nav>
 
@@ -96,33 +102,35 @@
     <!-- Dashboard Page -->
     <section class="page active" id="page-dashboard">
       <div class="page-header">
-        <h1>Dashboard</h1>
-        <p class="subtitle">Overview of your sync configurations</p>
+        <div class="page-title-group">
+          <h1>Dashboard</h1>
+          <p class="subtitle">Overview of your sync configurations</p>
+        </div>
       </div>
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">💬</div>
+          <div class="stat-icon">💬</div>
           <div class="stat-info">
             <span class="stat-value" id="stat-chat-total">—</span>
             <span class="stat-label">Chat Syncs</span>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">✅</div>
+          <div class="stat-icon stat-icon-success">✅</div>
           <div class="stat-info">
             <span class="stat-value" id="stat-chat-active">—</span>
             <span class="stat-label">Active</span>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">📁</div>
+          <div class="stat-icon stat-icon-info">📁</div>
           <div class="stat-info">
             <span class="stat-value" id="stat-drive-total">—</span>
             <span class="stat-label">Drive Syncs</span>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">🔄</div>
+          <div class="stat-icon stat-icon-warning">🔄</div>
           <div class="stat-info">
             <span class="stat-value" id="stat-drive-active">—</span>
             <span class="stat-label">Drive Active</span>
@@ -157,25 +165,23 @@
 
     <!-- Chat Sync Page -->
     <section class="page" id="page-chat-sync">
-      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
-        <div style="flex-basis: 100%; display: flex; justify-content: space-between; align-items: flex-start;">
-          <div>
-            <h1>Chat Sync Configs</h1>
-            <p class="subtitle">Map ClickUp Tasks ↔ Slack Threads ↔ Discord Threads</p>
-          </div>
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Chat Sync Configs</h1>
+          <p class="subtitle">Map ClickUp Tasks ↔ Slack Threads ↔ Discord Threads</p>
+        </div>
+        <div class="page-actions">
           <button class="btn btn-primary" onclick="openModal('chat')">+ Add Sync Config</button>
         </div>
-        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
-          <select id="chat-filter-customer" class="form-group" style="padding: 6px; width: auto;"
-            onchange="updateChatProjectFilter()">
-            <option value="">-- All Customers --</option>
-          </select>
-          <select id="chat-filter-project" class="form-group" style="padding: 6px; width: auto;"
-            onchange="loadSyncConfigs()">
-            <option value="">-- All Projects --</option>
-          </select>
-          <button class="btn btn-secondary" onclick="loadSyncConfigs()">🔄 Refresh</button>
-        </div>
+      </div>
+      <div class="toolbar">
+        <select id="chat-filter-customer" onchange="updateChatProjectFilter()">
+          <option value="">-- All Customers --</option>
+        </select>
+        <select id="chat-filter-project" onchange="loadSyncConfigs()">
+          <option value="">-- All Projects --</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadSyncConfigs()">🔄 Refresh</button>
       </div>
       <div class="card">
         <div class="card-body">
@@ -206,9 +212,13 @@
     <!-- Customers Page -->
     <section class="page" id="page-customers">
       <div class="page-header">
-        <h1>Customers</h1>
-        <p class="subtitle">Manage customers</p>
-        <button class="btn btn-primary" onclick="openModal('customer')">+ Add Customer</button>
+        <div class="page-title-group">
+          <h1>Customers</h1>
+          <p class="subtitle">Manage customers</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="openModal('customer')">+ Add Customer</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
@@ -232,9 +242,13 @@
     <!-- Projects Page -->
     <section class="page" id="page-projects">
       <div class="page-header">
-        <h1>Projects</h1>
-        <p class="subtitle">Manage projects under customers</p>
-        <button class="btn btn-primary" onclick="openModal('project')">+ Add Project</button>
+        <div class="page-title-group">
+          <h1>Projects</h1>
+          <p class="subtitle">Manage projects under customers</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="openModal('project')">+ Add Project</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
@@ -258,25 +272,23 @@
 
     <!-- Drive Sync Page -->
     <section class="page" id="page-drive-sync">
-      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
-        <div style="flex-basis: 100%; display: flex; justify-content: space-between; align-items: flex-start;">
-          <div>
-            <h1>Drive Sync Configs</h1>
-            <p class="subtitle">Sync Google Drive folders from studio → client</p>
-          </div>
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Drive Sync Configs</h1>
+          <p class="subtitle">Sync Google Drive folders from studio → client</p>
+        </div>
+        <div class="page-actions">
           <button class="btn btn-primary" onclick="openModal('drive')">+ Add Drive Config</button>
         </div>
-        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
-          <select id="drive-filter-customer" class="form-group" style="padding: 6px; width: auto;"
-            onchange="updateDriveProjectFilter()">
-            <option value="">-- All Customers --</option>
-          </select>
-          <select id="drive-filter-project" class="form-group" style="padding: 6px; width: auto;"
-            onchange="loadDriveConfigs()">
-            <option value="">-- All Projects --</option>
-          </select>
-          <button class="btn btn-secondary" onclick="loadDriveConfigs()">🔄 Refresh</button>
-        </div>
+      </div>
+      <div class="toolbar">
+        <select id="drive-filter-customer" onchange="updateDriveProjectFilter()">
+          <option value="">-- All Customers --</option>
+        </select>
+        <select id="drive-filter-project" onchange="loadDriveConfigs()">
+          <option value="">-- All Projects --</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadDriveConfigs()">🔄 Refresh</button>
       </div>
       <div class="card">
         <div class="card-body">
@@ -306,41 +318,49 @@
 
     <!-- PM Tracking Page -->
     <section class="page" id="page-pm-tracking">
-      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
-        <div style="flex-basis: 100%;">
+      <div class="page-header">
+        <div class="page-title-group">
           <h1>PM Finance Tracking</h1>
           <p class="subtitle">Realtime sync with ClickUp. Internal cost tracking.</p>
         </div>
-        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
-          <select id="pm-filter-config" class="form-group" style="padding: 6px; width: auto;"
-            onchange="loadPMTracking()">
-            <option value="">-- All Configs --</option>
-          </select>
-          <select id="pm-filter-jobtype" class="form-group" style="padding: 6px; width: auto;"
-            onchange="loadPMTracking()">
-            <option value="">-- All Job Types --</option>
-            <option value="Art">Art</option>
-            <option value="Animation">Animation</option>
-          </select>
-          <select id="pm-filter-payment" class="form-group" style="padding: 6px; width: auto;"
-            onchange="loadPMTracking()">
-            <option value="">-- All Payments --</option>
-            <option value="Unpaid">Unpaid</option>
-            <option value="Advance Paid">Advance Paid</option>
-            <option value="Fully Paid">Fully Paid</option>
-          </select>
-          <button class="btn btn-secondary" onclick="loadPMTracking()">🔄 Refresh</button>
-          <button class="btn btn-primary" id="btn-pm-sync" onclick="refreshPMFromClickUp()">⚡ Sync from ClickUp</button>
+        <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" onclick="loadPMTracking()">🔄 Refresh</button>
+          <button class="btn btn-primary btn-sm" id="btn-pm-sync" onclick="refreshPMFromClickUp()">⚡ Sync from
+            ClickUp</button>
         </div>
+      </div>
+      <div class="toolbar">
+        <select id="pm-filter-config" onchange="loadPMTracking()">
+          <option value="">-- All Configs --</option>
+        </select>
+        <select id="pm-filter-jobtype" onchange="loadPMTracking()">
+          <option value="">-- All Job Types --</option>
+        </select>
+        <select id="pm-filter-payment" onchange="loadPMTracking()">
+          <option value="">-- Thanh toán --</option>
+          <option value="Unpaid">Pending</option>
+          <option value="Paid">Done</option>
+        </select>
+        <select id="pm-filter-assignee" onchange="loadPMTracking()">
+          <option value="">-- All Assignees --</option>
+        </select>
+        <select id="pm-filter-status" onchange="loadPMTracking()">
+          <option value="">-- All Statuses --</option>
+        </select>
+        <select id="pm-filter-duedate" onchange="loadPMTracking()">
+          <option value="">-- Due Date --</option>
+          <option value="yes">Has Due Date</option>
+          <option value="no">No Due Date</option>
+        </select>
       </div>
 
       <!-- PM Tracking Configs -->
-      <div class="card" style="margin-bottom: 20px;">
+      <div class="card card-section">
+        <div class="card-header card-header-flex">
+          <h2>📋 Tracking Configs</h2>
+          <button class="btn btn-primary btn-sm" onclick="openModal('pm-config')">+ Add PM Config</button>
+        </div>
         <div class="card-body">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0; font-size: 16px; color: var(--text);">📋 Tracking Configs</h3>
-            <button class="btn btn-primary btn-sm" onclick="openModal('pm-config')">+ Add PM Config</button>
-          </div>
           <table class="data-table" id="pm-configs-table">
             <thead>
               <tr>
@@ -363,6 +383,9 @@
 
       <!-- PM Tasks Data -->
       <div class="card">
+        <div class="card-header">
+          <h2>📊 Task Data</h2>
+        </div>
         <div class="card-body">
           <table class="data-table" id="pm-tracking-table">
             <thead>
@@ -371,7 +394,11 @@
                 <th>Task Name</th>
                 <th>Status</th>
                 <th>Assignee</th>
+                <th>Due Date</th>
+                <th>Closed Date</th>
                 <th>Cost</th>
+                <th>Bonus</th>
+                <th>Bonus Reason</th>
                 <th>Payment Status</th>
                 <th>Notes</th>
                 <th>Actions</th>
@@ -379,31 +406,66 @@
             </thead>
             <tbody id="pm-tracking-body">
               <tr>
-                <td colspan="8" class="empty-state">Loading...</td>
+                <td colspan="12" class="empty-state">Loading...</td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Monthly Invoice Page -->
+    <section class="page" id="page-invoice">
+      <div class="page-header">
+        <div class="page-title-group">
+          <h1>Monthly Invoice</h1>
+          <p class="subtitle">Tổng hợp hoá đơn thanh toán hàng tháng cho Assignees</p>
+        </div>
+      </div>
+
+      <div class="card card-section">
+        <div class="card-header card-header-flex">
+          <h2>🧾 Generate Invoice</h2>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="month" id="invoice-month"
+              style="padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:13px;">
+            <select id="invoice-assignee"
+              style="padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:13px; min-width:160px;">
+              <option value="">-- All Assignees --</option>
+            </select>
+            <button class="btn btn-primary" onclick="generateInvoice()" style="padding:8px 20px;">📄 Generate
+              Invoice</button>
+          </div>
+        </div>
+        <div class="card-body" id="invoice-container">
+          <div style="padding:50px; text-align:center;">
+            <div style="font-size:48px; margin-bottom:12px;">🧾</div>
+            <div style="font-size:16px; font-weight:600; color:var(--text); margin-bottom:4px;">Chọn tháng và bấm
+              Generate</div>
+            <div style="font-size:13px; color:var(--text-muted);">Hệ thống sẽ tổng hợp các task đã closed và chưa thanh
+              toán cho từng Assignee</div>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- Logs Page -->
     <section class="page" id="page-logs">
-      <div class="page-header" style="flex-wrap: wrap; gap: 16px;">
-        <div style="flex-basis: 100%;">
+      <div class="page-header">
+        <div class="page-title-group">
           <h1>Sync Logs</h1>
-          <p class="subtitle">All synced messages Filterable by Customer/Project</p>
+          <p class="subtitle">All synced messages — filterable by Customer/Project</p>
         </div>
-        <div class="filter-bar" style="display: flex; gap: 10px; width: 100%;">
-          <select id="log-filter-customer" class="form-group" style="padding: 6px; width: auto;"
-            onchange="updateLogProjectFilter()">
-            <option value="">-- All Customers --</option>
-          </select>
-          <select id="log-filter-project" class="form-group" style="padding: 6px; width: auto;" onchange="loadLogs()">
-            <option value="">-- All Projects --</option>
-          </select>
-          <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
-        </div>
+      </div>
+      <div class="toolbar">
+        <select id="log-filter-customer" onchange="updateLogProjectFilter()">
+          <option value="">-- All Customers --</option>
+        </select>
+        <select id="log-filter-project" onchange="loadLogs()">
+          <option value="">-- All Projects --</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">🔄 Refresh</button>
       </div>
       <div class="card">
         <div class="card-body">
@@ -433,9 +495,13 @@
     <!-- Name Mappings Page -->
     <section class="page" id="page-name-mappings">
       <div class="page-header">
-        <h1>Name Mappings</h1>
-        <p class="subtitle">Custom display names for synced messages</p>
-        <button class="btn btn-primary" onclick="openModal('name-mapping')">+ Add Mapping</button>
+        <div class="page-title-group">
+          <h1>Name Mappings</h1>
+          <p class="subtitle">Custom display names for synced messages</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="openModal('name-mapping')">+ Add Mapping</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
@@ -461,9 +527,13 @@
     <!-- List Mappings Page -->
     <section class="page" id="page-list-mappings">
       <div class="page-header">
-        <h1>List Mappings</h1>
-        <p class="subtitle">Auto-Sync Rules: Map ClickUp Lists to Slack & Discord Channels</p>
-        <button class="btn btn-primary" onclick="openModal('list-mapping')">+ Add Mapping</button>
+        <div class="page-title-group">
+          <h1>List Configs</h1>
+          <p class="subtitle">Auto-Sync Rules: Map ClickUp Lists to Slack & Discord Channels</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="openModal('list-mapping')">+ Add Mapping</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
@@ -473,9 +543,9 @@
                 <th>ClickUp List ID</th>
                 <th>Job Type</th>
                 <th>Slack Channel ID</th>
-                <th>Slack Users to Tag</th>
+                <th>Slack Users</th>
                 <th>Discord Channel ID</th>
-                <th>Discord Users to Tag</th>
+                <th>Discord Users</th>
                 <th>Customer</th>
                 <th>Project</th>
                 <th>Status</th>
@@ -491,45 +561,21 @@
         </div>
       </div>
     </section>
-    <section class="page" id="page-name-mappings">
-      <div class="page-header">
-        <h1>Name Mappings</h1>
-        <p class="subtitle">Custom display names for synced messages</p>
-        <button class="btn btn-primary" onclick="openModal('name-mapping')">+ Add Mapping</button>
-      </div>
-      <div class="card">
-        <div class="card-body">
-          <table class="data-table" id="name-mappings-table">
-            <thead>
-              <tr>
-                <th>Platform</th>
-                <th>Original Name</th>
-                <th>Custom Name</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="name-mappings-body">
-              <tr>
-                <td colspan="4" class="empty-state">Loading...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
 
     <!-- Settings Page -->
     <section class="page" id="page-settings">
       <div class="page-header">
-        <h1>Settings</h1>
-        <p class="subtitle">Server status & configuration</p>
+        <div class="page-title-group">
+          <h1>Settings</h1>
+          <p class="subtitle">Server status & configuration</p>
+        </div>
       </div>
       <div class="settings-grid">
         <div class="card">
           <div class="card-header">
             <h2>Server Status</h2>
           </div>
-          <div class="card-body" id="server-info">
+          <div class="card-body settings-body" id="server-info">
             <div class="setting-row">
               <span class="setting-label">Status</span>
               <span class="badge badge-success" id="setting-status">—</span>
@@ -548,7 +594,7 @@
           <div class="card-header">
             <h2>Webhook URLs</h2>
           </div>
-          <div class="card-body">
+          <div class="card-body settings-body">
             <div class="setting-row">
               <span class="setting-label">ClickUp Webhook</span>
               <code class="url-code" id="webhook-clickup">/webhook/clickup</code>
@@ -582,6 +628,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="app.js"></script>
 </body>
 

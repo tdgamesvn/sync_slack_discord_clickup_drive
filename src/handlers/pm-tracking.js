@@ -36,6 +36,8 @@ async function handlePMTracking(task_id, taskDeet, listId, currentStatus) {
         Assignee: taskDeet?.assignees?.map(a => a.username).join(', ') || '',
         Task_URL: taskDeet?.url || '#',
         PM_Config_Title: pmConfig?.Title || '',
+        Due_Date: taskDeet?.due_date ? new Date(parseInt(taskDeet.due_date)).toISOString().split('T')[0] : '',
+        Closed_Date: taskDeet?.date_closed ? new Date(parseInt(taskDeet.date_closed)).toISOString().split('T')[0] : '',
     };
 
     await upsertPMTaskTracking(taskData);
