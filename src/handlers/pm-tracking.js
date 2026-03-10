@@ -6,6 +6,13 @@ const { upsertPMTaskTracking, findListMapping } = require('../nocodb');
  */
 async function handlePMTracking(task_id, taskDeet, listId, currentStatus) {
     const listMapping = await findListMapping(listId);
+
+    // Skip if mapping is paused
+    if (listMapping?.Enabled === 'Paused') {
+        console.log(`[PM Tracking] Skipping task ${task_id} — mapping is paused.`);
+        return listMapping;
+    }
+
     const jobType = listMapping?.Job_Type; // 'Art' or 'Animation' from NocoDB
 
     if (!jobType) return listMapping; // Return listMapping for reuse by other handlers

@@ -29,6 +29,12 @@ async function handleSlackAutomation(event, task_id, history_items, listMapping,
 
     if (!listMapping) return;
 
+    // Skip if mapping is paused
+    if (listMapping.Enabled === 'Paused') {
+        console.log(`[Slack Automation] Skipping task ${task_id} — mapping is paused.`);
+        return;
+    }
+
     const slackChannelId = listMapping.Slack_Channel_ID;
     const slackReviewUsers = listMapping.Slack_Review_User_IDs;
     const customerId = typeof listMapping.Customer_Id === 'object' && listMapping.Customer_Id !== null

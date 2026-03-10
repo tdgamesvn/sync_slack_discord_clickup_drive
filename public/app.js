@@ -475,12 +475,11 @@ async function loadListMappings() {
     }
 
     if (!data || data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No list mappings configured yet. Click "+ Add Mapping" to set auto-sync for a ClickUp List.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No list mappings configured yet. Click "+ Add Mapping" to set auto-sync for a ClickUp List.</td></tr>';
       return;
     }
 
     console.log('[List Mappings] Found records, fetching dropdowns...');
-    // Need customer and project names for display instead of IDs
     await fetchDropdownData();
     const custMap = new Map(allCustomers.map(c => [c.Id, c.Title]));
     const projMap = new Map(allProjects.map(p => [p.Id, p.Title]));
@@ -490,17 +489,23 @@ async function loadListMappings() {
       const listId = m.ClickUp_List_ID || m.List_ID || '';
       const custVal = typeof m.Customer_Id === 'object' && m.Customer_Id !== null ? (m.Customer_Id.Title || m.Customer_Id.Id) : (custMap.get(m.Customer_Id) || m.Customer_Id);
       const projVal = typeof m.Project_Id === 'object' && m.Project_Id !== null ? (m.Project_Id.Title || m.Project_Id.Id) : (projMap.get(m.Project_Id) || m.Project_Id);
+      const isPaused = m.Enabled === 'Paused';
+      const toggleIcon = isPaused ? '▶️' : '⏸️';
+      const toggleTitle = isPaused ? 'Activate' : 'Pause';
 
       return `
-          <tr>
+          <tr style="${isPaused ? 'opacity: 0.55;' : ''}">
             <td><code>${esc(listId || '—')}</code></td>
+            <td><strong>${esc(m.Job_Type || '—')}</strong></td>
             <td><code>${esc(m.Slack_Channel_ID || '—')}</code></td>
             <td>${esc(m.Slack_Review_User_IDs || '—')}</td>
             <td><code>${esc(m.Discord_Channel_ID || '—')}</code></td>
             <td>${esc(m.Discord_Review_User_IDs || '—')}</td>
             <td>${esc(custVal || '—')}</td>
             <td>${esc(projVal || '—')}</td>
+            <td>${statusBadge(isPaused ? 'paused' : 'active')}</td>
             <td class="action-btns">
+              <button class="btn btn-sm ${isPaused ? 'btn-success' : 'btn-warning'}" onclick="toggleListMappingStatus(${m.Id}, '${m.Enabled || 'Active'}')" title="${toggleTitle}">${toggleIcon}</button>
               <button class="btn btn-sm btn-primary" onclick='openModal("list-mapping", ${JSON.stringify(m).replace(/'/g, "&apos;")})'>✏️</button>
               <button class="btn btn-sm btn-danger" onclick="deleteListMapping(${m.Id})">🗑️</button>
             </td>
@@ -511,7 +516,7 @@ async function loadListMappings() {
   } catch (err) {
     console.error('Load list mappings failed:', err);
     const tbody = document.getElementById('list-mappings-body');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty-state badge-error">Error loading mappings: ${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="empty-state badge-error">Error loading mappings: ${err.message}</td></tr>`;
   }
 }
 
@@ -522,6 +527,20 @@ async function deleteListMapping(id) {
     loadListMappings();
   } catch (err) {
     alert('Delete failed: ' + err.message);
+  }
+}
+
+async function toggleListMappingStatus(id, currentStatus) {
+  const newStatus = currentStatus === 'Paused' ? 'Active' : 'Paused';
+  try {
+    await apiFetch(`${API}/api/list-mappings/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Enabled: newStatus }),
+    });
+    loadListMappings();
+  } catch (err) {
+    alert('Toggle failed: ' + err.message);
   }
 }
 
@@ -814,6 +833,22 @@ async function openModal(type, editData = null) {
         <select name="Project_Id">
           <option value="">-- None --</option>
           ${projectOpts}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Job Type</label>
+        <select name="Job_Type">
+          <option value="" ${!editData?.Job_Type ? 'selected' : ''}>-- None (No PM Tracking) --</option>
+          <option value="Art" ${editData?.Job_Type === 'Art' ? 'selected' : ''}>Art</option>
+          <option value="Animation" ${editData?.Job_Type === 'Animation' ? 'selected' : ''}>Animation</option>
+        </select>
+        <span class="help">Set Job Type to enable PM Finance Tracking for tasks in this list</span>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="Enabled">
+          <option value="Active" ${!editData?.Enabled || editData?.Enabled === 'Active' ? 'selected' : ''}>Active</option>
+          <option value="Paused" ${editData?.Enabled === 'Paused' ? 'selected' : ''}>Paused</option>
         </select>
       </div>
     `;

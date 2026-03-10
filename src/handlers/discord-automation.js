@@ -30,6 +30,12 @@ async function handleDiscordAutomation(event, task_id, history_items, listMappin
 
     if (!listMapping) return;
 
+    // Skip if mapping is paused
+    if (listMapping.Enabled === 'Paused') {
+        console.log(`[Discord Automation] Skipping task ${task_id} — mapping is paused.`);
+        return;
+    }
+
     const discordChannelId = listMapping.Discord_Channel_ID;
     const discordReviewUsers = listMapping.Discord_Review_User_IDs;
     const customerId = typeof listMapping.Customer_Id === 'object' && listMapping.Customer_Id !== null
