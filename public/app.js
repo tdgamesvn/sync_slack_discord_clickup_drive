@@ -672,6 +672,8 @@ async function generateInvoice() {
           <td style="padding:10px 14px; font-size:13px;">${closedDate}${isOverdue ? ' <span style="background:rgba(245,158,11,0.15); color:#F59E0B; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600;">OVERDUE</span>' : ''}</td>
           <td style="padding:10px 14px; text-align:right; font-weight:600; font-size:13px;">${fmt(cost)}</td>
           <td style="padding:10px 14px; text-align:right; font-size:13px; color:${bonus > 0 ? 'var(--success)' : 'var(--text-muted)'};">${bonus > 0 ? '+' + fmt(bonus) : '—'}</td>
+          <td style="padding:10px 14px; font-size:12px; color:var(--text-muted); max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(t.Bonus_Reason || '')}">${esc(t.Bonus_Reason || '—')}</td>
+          <td style="padding:10px 14px; font-size:12px; color:var(--text-muted); max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(t.Notes || '')}">${esc(t.Notes || '—')}</td>
           <td style="padding:10px 14px; text-align:right; font-weight:700; font-size:13px;">${fmt(cost + bonus)}</td>
         </tr>`;
       }).join('');
@@ -710,6 +712,8 @@ async function generateInvoice() {
                   <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Closed</th>
                   <th style="padding:12px 14px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Cost</th>
                   <th style="padding:12px 14px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Bonus</th>
+                  <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Bonus Note</th>
+                  <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Notes</th>
                   <th style="padding:12px 14px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">Subtotal</th>
                 </tr>
               </thead>
