@@ -22,7 +22,8 @@ jobs:
             cd /opt/chatsync/app/
             
             echo "📥 Pulling latest code..."
-            sudo -u chatsync git pull origin main
+            sudo -u chatsync git fetch --all
+            sudo -u chatsync git reset --hard origin/main
             
             echo "📦 Installing dependencies..."
             sudo -u chatsync npm install
