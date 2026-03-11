@@ -22,13 +22,13 @@ jobs:
             cd /opt/chatsync/app/
             
             echo "📥 Pulling latest code..."
-            git pull origin main
+            sudo -u chatsync git pull origin main
             
             echo "📦 Installing dependencies..."
-            npm install --production
+            sudo -u chatsync npm install
             
-            echo "🔄 Restarting application..."
-            pm2 restart chat-sync || pm2 start server.js --name chat-sync
+            echo "🔄 Restarting service..."
+            sudo systemctl restart chatsync
             
             echo "✅ Deployment complete!"
-            pm2 status
+            sudo systemctl status chatsync --no-pager
