@@ -28,6 +28,15 @@ app.use((req, res, next) => {
     express.json({ limit: '50mb' })(req, res, next);
 });
 
+// Disable caching for JS/CSS to ensure fresh deploys are picked up
+app.use((req, res, next) => {
+    if (req.path.endsWith('.js') || req.path.endsWith('.css')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Webhook Routes ───────────────────────────
