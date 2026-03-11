@@ -702,8 +702,8 @@ async function generateInvoice() {
           </div>
 
           <!-- Task Table -->
-          <div style="padding:0;">
-            <table style="width:100%; border-collapse:collapse;">
+          <div style="padding:0; overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:900px;">
               <thead>
                 <tr style="border-bottom:2px solid var(--border);">
                   <th style="padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-muted); font-weight:700;">#</th>
