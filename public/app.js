@@ -610,17 +610,28 @@ async function generateInvoice() {
     const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
     const monthDisplay = `${monthNames[parseInt(mm) - 1]}, ${yyyy}`;
 
-    // Summary stats
-    let allTaskCount = 0, allGrandTotal = 0;
-    const allCurrency = Object.values(invoices)[0]?.currency || 'USD';
-    const fmtGlobal = (val) => allCurrency === 'VND'
-      ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
-      : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-
+    // Summary stats — group by currency
+    let allTaskCount = 0;
+    let totalUSD = 0, totalVND = 0;
     Object.values(invoices).forEach(inv => {
       allTaskCount += inv.tasks.length;
-      allGrandTotal += inv.grandTotal;
+      if (inv.currency === 'VND') totalVND += inv.grandTotal;
+      else totalUSD += inv.grandTotal;
     });
+
+    const fmtUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+    const fmtVND = (val) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+
+    // Build total display — show both currencies if mixed
+    let totalDisplay = '';
+    if (totalUSD > 0 && totalVND > 0) {
+      totalDisplay = `<div style="font-size:20px; font-weight:800; color:var(--primary);">${fmtUSD(totalUSD)}</div>
+        <div style="font-size:18px; font-weight:700; color:var(--primary); margin-top:4px;">${fmtVND(totalVND)}</div>`;
+    } else if (totalVND > 0) {
+      totalDisplay = `<div style="font-size:24px; font-weight:800; color:var(--primary);">${fmtVND(totalVND)}</div>`;
+    } else {
+      totalDisplay = `<div style="font-size:24px; font-weight:800; color:var(--primary);">${fmtUSD(totalUSD)}</div>`;
+    }
 
     let html = `
     <!-- Summary Bar -->
@@ -634,7 +645,7 @@ async function generateInvoice() {
         <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Tasks Pending</div>
       </div>
       <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
-        <div style="font-size:24px; font-weight:800; color:var(--primary);">${fmtGlobal(allGrandTotal)}</div>
+        ${totalDisplay}
         <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Tổng thanh toán</div>
       </div>
     </div>`;
@@ -669,16 +680,20 @@ async function generateInvoice() {
       <div class="invoice-card" id="invoice-${esc(assigneeName)}" style="margin-bottom:28px;">
         <div class="invoice-content" style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
           
-          <!-- Gradient Header -->
+          <!-- Gradient Header with Logo -->
           <div style="background:linear-gradient(135deg, var(--primary), #F97316); padding:20px 24px; color:#fff;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <div style="font-size:11px; text-transform:uppercase; letter-spacing:2px; opacity:0.85;">Payment Invoice</div>
-                <div style="font-size:22px; font-weight:800; margin-top:4px;">📋 ${esc(assigneeName)}</div>
+              <div style="display:flex; align-items:center; gap:14px;">
+                <img src="td-games-logo.png" alt="TD Games" style="width:44px; height:44px; object-fit:contain; filter:brightness(0) invert(1); opacity:0.9;">
+                <div>
+                  <div style="font-size:11px; text-transform:uppercase; letter-spacing:2px; opacity:0.85;">Payment Invoice</div>
+                  <div style="font-size:22px; font-weight:800; margin-top:4px;">${esc(assigneeName)}</div>
+                </div>
               </div>
               <div style="text-align:right;">
                 <div style="font-size:12px; opacity:0.85;">${monthDisplay}</div>
                 <div style="font-size:24px; font-weight:800; margin-top:2px;">${inv.tasks.length} <span style="font-size:13px; font-weight:400;">tasks</span></div>
+                <div style="font-size:11px; opacity:0.7; margin-top:2px;">${inv.currency === 'VND' ? '🇻🇳 VNĐ' : '🇺🇸 USD'}</div>
               </div>
             </div>
             ${overdueCount > 0 ? `<div style="margin-top:10px; background:rgba(255,255,255,0.2); padding:6px 12px; border-radius:8px; font-size:12px; display:inline-block;">⚠️ ${overdueCount} task từ tháng trước chưa thanh toán</div>` : ''}
