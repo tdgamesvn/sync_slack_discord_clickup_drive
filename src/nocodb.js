@@ -142,6 +142,34 @@ async function deleteSyncConfig(rowId) {
     return res.data;
 }
 
+async function getSyncConfigsByListMappingId(listMappingId) {
+    const ids = await getTableIds();
+    const res = await api.get(`/tables/${ids.SyncConfigs}/records`, {
+        params: { where: `(List_Mapping_Id,eq,${listMappingId})`, limit: 200 }
+    });
+    return res.data.list || [];
+}
+
+async function bulkUpdateSyncConfigStatus(listMappingId, status) {
+    const configs = await getSyncConfigsByListMappingId(listMappingId);
+    if (configs.length === 0) return [];
+    const ids = await getTableIds();
+    const updates = configs.map(c => ({ Id: c.Id, Status: status }));
+    const res = await api.patch(`/tables/${ids.SyncConfigs}/records`, updates);
+    console.log(`[NocoDB] Bulk updated ${configs.length} SyncConfigs to Status: ${status}`);
+    return res.data;
+}
+
+async function bulkDeleteSyncConfigs(listMappingId) {
+    const configs = await getSyncConfigsByListMappingId(listMappingId);
+    if (configs.length === 0) return [];
+    const ids = await getTableIds();
+    const deletes = configs.map(c => ({ Id: c.Id }));
+    const res = await api.delete(`/tables/${ids.SyncConfigs}/records`, { data: deletes });
+    console.log(`[NocoDB] Bulk deleted ${configs.length} SyncConfigs for ListMapping ${listMappingId}`);
+    return res.data;
+}
+
 // ─── SyncMessages ─────────────────────────────
 
 async function logMessage({ syncConfigTitle, source, sourceMessageId, author, content, syncedTo, status, customerId, projectId, actionBy }) {
@@ -402,5 +430,8 @@ module.exports = {
     findPMTrackingConfig,
     createPMTrackingConfig,
     updatePMTrackingConfig,
-    deletePMTrackingConfig
+    deletePMTrackingConfig,
+    getSyncConfigsByListMappingId,
+    bulkUpdateSyncConfigStatus,
+    bulkDeleteSyncConfigs
 };

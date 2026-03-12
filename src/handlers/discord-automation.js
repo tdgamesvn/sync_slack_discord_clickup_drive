@@ -68,6 +68,7 @@ async function handleDiscordAutomation(event, task_id, history_items, listMappin
                 Status: 'active',
                 Customer_Id: customerId,
                 Project_Id: projectId,
+                List_Mapping_Id: listMapping.Id,
             });
             console.log(`[Discord Automation] Registered sync config for task ${task_id} (thread: ${result.threadId})`);
         } catch (err) {

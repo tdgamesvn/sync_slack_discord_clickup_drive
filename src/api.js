@@ -618,7 +618,20 @@ router.post('/list-mappings', async (req, res) => {
 
 router.put('/list-mappings/:id', async (req, res) => {
     try {
-        const data = await nocodb.updateListMapping(parseInt(req.params.id, 10), req.body);
+        const id = parseInt(req.params.id, 10);
+        const data = await nocodb.updateListMapping(id, req.body);
+
+        // Cascade: if Enabled field changed, update child SyncConfigs
+        if (req.body.Enabled) {
+            if (req.body.Enabled === 'Paused') {
+                await nocodb.bulkUpdateSyncConfigStatus(id, 'paused');
+                console.log(`[API] Cascaded PAUSE to SyncConfigs for ListMapping ${id}`);
+            } else {
+                await nocodb.bulkUpdateSyncConfigStatus(id, 'active');
+                console.log(`[API] Cascaded ACTIVATE to SyncConfigs for ListMapping ${id}`);
+            }
+        }
+
         res.json({ data });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -627,7 +640,13 @@ router.put('/list-mappings/:id', async (req, res) => {
 
 router.delete('/list-mappings/:id', async (req, res) => {
     try {
-        await nocodb.deleteListMapping(parseInt(req.params.id, 10));
+        const id = parseInt(req.params.id, 10);
+
+        // Cascade: delete all child SyncConfigs first
+        await nocodb.bulkDeleteSyncConfigs(id);
+        console.log(`[API] Cascaded DELETE to SyncConfigs for ListMapping ${id}`);
+
+        await nocodb.deleteListMapping(id);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -61,6 +61,7 @@ async function handleSlackAutomation(event, task_id, history_items, listMapping,
             Status: 'active',
             Customer_Id: customerId,
             Project_Id: projectId,
+            List_Mapping_Id: listMapping.Id,
         });
         console.log(`[Slack Automation] Registered sync config for task ${task_id}`);
     }
